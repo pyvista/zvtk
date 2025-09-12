@@ -1,4 +1,5 @@
 import json
+import pyvista as pv
 from typing import Any
 import mmap
 from tqdm import tqdm
@@ -7,9 +8,8 @@ from zstandard import BufferWithSegments, BufferSegment
 import zstandard as zstd
 import struct
 import numpy as np
-import pyvista as pv
 from pyvista.core.dataset import DataSet
-from pyvista.core.pointset import UnstructuredGrid
+from pyvista.core.pointset import UnstructuredGrid, PolyData
 from vtkmodules.util.numpy_support import numpy_to_vtk as numpy_to_vtk
 from vtkmodules.vtkCommonCore import vtkTypeInt32Array, vtkTypeInt64Array
 from vtkmodules.vtkCommonDataModel import vtkCellArray
@@ -17,27 +17,42 @@ from vtkmodules.vtkCommonDataModel import vtkCellArray
 VTK_UNSIGNED_CHAR = 3
 POINT_DATA_SUFFIX = "__point_data"
 CELL_DATA_SUFFIX = "__cell_data"
+FIELD_DATA_SUFFIX = "__field_data"
 
 
 def compress(ds, filename: Path | str) -> None:
-    arrays = {
-        "points": ds.points,
-        "offset": ds.offset,
-        "cell_connectivity": ds.cell_connectivity,
-        "celltypes": ds.celltypes,
-    }
+    """Compress a PyVista or VTK dataset."""
+
+    ds = pv.wrap(ds)
+    filename = Path(filename)
+
+    arrays = {}
+    if isinstance(ds, PolyData):
+        ds_type = "PolyData"
+        arrays["points"] = ds.points
+        arrays["offset"] = ds._offset_array
+        arrays["cell_connectivity"] = ds._connectivity_array
+    elif isinstance(ds, UnstructuredGrid):
+        ds_type = "UnstructuredGrid"
+        arrays["points"] = ds.points
+        arrays["offset"] = ds.offset
+        arrays["cell_connectivity"] = ds.cell_connectivity
+        arrays["celltypes"] = ds.celltypes
 
     point_data = ds.point_data
     for key, array in point_data.items():
         arrays[key + POINT_DATA_SUFFIX] = array
-
     cell_data = ds.cell_data
     for key, array in cell_data.items():
         arrays[key + CELL_DATA_SUFFIX] = array
+    field_data = ds.field_data
+    for key, array in field_data.items():
+        arrays[key + FIELD_DATA_SUFFIX] = array
 
     # dataset metadata
     meta_dict = {
-        "type": str(type(ds)),
+        "type": ds_type,
+        "VERSION": 0,
         "point_data_active_scalars_name": point_data.active_scalars_name,
         "point_data_active_vectors_name": point_data.active_vectors_name,
         "point_data_active_texture_coordinates_name": point_data.active_texture_coordinates_name,
@@ -114,6 +129,23 @@ def _get_or_raise(the_dict: dict[str, Any], key: str) -> Any:
     return the_dict[key]
 
 
+def _add_data(ds: DataSet, segment_dict: dict[str, Any]) -> None:
+    # add point and cell data
+    point_data = ds.point_data
+    cell_data = ds.cell_data
+    field_data = ds.field_data
+    for key, array in segment_dict.items():
+        if key.endswith(POINT_DATA_SUFFIX):
+            name = key[: -len(POINT_DATA_SUFFIX)]
+            point_data.set_array(array, name)
+        if key.endswith(CELL_DATA_SUFFIX):
+            name = key[: -len(CELL_DATA_SUFFIX)]
+            cell_data.set_array(array, name)
+        if key.endswith(FIELD_DATA_SUFFIX):
+            name = key[: -len(FIELD_DATA_SUFFIX)]
+            field_data.set_array(array, name)
+
+
 def _segments_to_ugrid(segment_dict: dict[str, Any]) -> UnstructuredGrid:
     # convert to vtk arrays without copying
     offset = _get_or_raise(segment_dict, "offset")
@@ -137,18 +169,34 @@ def _segments_to_ugrid(segment_dict: dict[str, Any]) -> UnstructuredGrid:
     ugrid.SetCells(celltypes_vtk, cell_array)
     ugrid.points = _get_or_raise(segment_dict, "points")
 
-    # add point and cell data
-    point_data = ugrid.point_data
-    cell_data = ugrid.cell_data
-    for key, array in segment_dict.items():
-        if key.endswith(POINT_DATA_SUFFIX):
-            name = key[: -len(POINT_DATA_SUFFIX)]
-            point_data.set_array(array, name)
-        if key.endswith(CELL_DATA_SUFFIX):
-            name = key[: -len(CELL_DATA_SUFFIX)]
-            cell_data.set_array(array, name)
-
+    _add_data(ugrid, segment_dict)
     return ugrid
+
+
+def _segments_to_polydata(segment_dict: dict[str, Any]) -> PolyData:
+    pdata = PolyData()
+    pdata.points = _get_or_raise(segment_dict, "points")
+
+    # convert to vtk arrays without copying
+    connectivity = _get_or_raise(segment_dict, "cell_connectivity")
+    dtype = connectivity.dtype
+    if dtype == np.int32:
+        vtk_dtype = vtkTypeInt32Array().GetDataType()
+    elif dtype == np.int64:
+        vtk_dtype = vtkTypeInt64Array().GetDataType()
+    else:
+        raise ValueError(f"Invalid faces dtype {dtype}. Expected np.int32 or np.int64")
+    connectivity_vtk = numpy_to_vtk(connectivity, deep=False, array_type=vtk_dtype)
+
+    offset = _get_or_raise(segment_dict, "offset")
+    offset_vtk = numpy_to_vtk(offset, deep=False, array_type=vtk_dtype)
+
+    carr = vtkCellArray()
+    carr.SetData(offset_vtk, connectivity_vtk)
+    pdata.SetPolys(carr)
+
+    _add_data(pdata, segment_dict)
+    return pdata
 
 
 def decompress(filename: Path | str) -> DataSet:
@@ -194,29 +242,34 @@ def decompress(filename: Path | str) -> DataSet:
     metadata_raw = segment_dict.pop("__metadata__")
     metadata = json.loads(metadata_raw.tobytes().decode("utf-8"))
 
+    # convert this to match when Python 3.9 goes EOL
     ds_type = metadata["type"]
-    if "UnstructuredGrid" in ds_type:
+    if ds_type == "UnstructuredGrid":
         ds = _segments_to_ugrid(segment_dict)
+    elif ds_type == "PolyData":
+        ds = _segments_to_polydata(segment_dict)
     else:
-        raise RuntimeError(f"Unsupported DataSet type {ds_type}")
+        raise RuntimeError(f"Unsupported DataSet type `{ds_type}`")
 
     # dataset metadata
     pd = ds.point_data
     if metadata.get("point_data_active_scalars_name"):
-        pd.set_active_scalars(metadata["point_data_active_scalars_name"])
+        pd.active_scalars_name = metadata["point_data_active_scalars_name"]
     if metadata.get("point_data_active_vectors_name"):
-        pd.set_active_vectors(metadata["point_data_active_vectors_name"])
+        pd.active_vectors_name = metadata["point_data_active_vectors_name"]
+    if metadata.get("point_data_active_texture_coordinates_name"):
+        pd.active_texture_coordinates_name = metadata["point_data_active_texture_coordinates_name"]
     if metadata.get("point_data_active_normals_name"):
-        pd.set_active_normals(metadata["point_data_active_normals_name"])
+        pd.active_normals_name = metadata["point_data_active_normals_name"]
 
     cd = ds.cell_data
     if metadata.get("cell_data_active_scalars_name"):
-        cd.set_active_scalars(metadata["cell_data_active_scalars_name"])
+        cd.active_scalars_name = metadata["cell_data_active_scalars_name"]
     if metadata.get("cell_data_active_vectors_name"):
-        cd.set_active_vectors(metadata["cell_data_active_vectors_name"])
-    if metadata.get("cell_data_active_texture_name"):
-        cd.set_active_texture(metadata["cell_data_active_texture_name"])
+        cd.active_vectors_name = metadata["cell_data_active_vectors_name"]
+    if metadata.get("cell_data_active_texture_coordinates_name"):
+        cd.active_texture_coordinates_name = metadata["cell_data_active_texture_coordinates_name"]
     if metadata.get("cell_data_active_normals_name"):
-        cd.set_active_normals(metadata["cell_data_active_normals_name"])
+        cd.active_normals_name = metadata["cell_data_active_normals_name"]
 
     return ds
