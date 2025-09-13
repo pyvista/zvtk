@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import numpy as np
+import pytest
 
 import zvtk
 
@@ -108,11 +109,14 @@ def test_ugrid(ugrid: UnstructuredGrid, tmp_path: Path) -> None:
     assert ugrid == ugrid_out
 
 
-def test_polydata(polydata: PolyData, tmp_path: Path) -> None:
+@pytest.mark.parametrize("strip", [False, True])
+def test_polydata(polydata: PolyData, tmp_path: Path, *, strip: bool) -> None:
     """Test unstructured grid."""
     # add in separate lines and vertices
-    polydata.lines = [2, 0, 1, 2, 1, 2]
+    polydata.lines = [2, 0, 1, 2, 1, 2, 2, 8, 9]
     polydata.verts = [1, 0, 1, 1, 1, 2, 1, 3, 1, 4]
+    if strip:
+        polydata = polydata.strip()
 
     populate_data(polydata)
 
@@ -121,6 +125,7 @@ def test_polydata(polydata: PolyData, tmp_path: Path) -> None:
     polydata_out = zvtk.decompress(tmp_filename)
 
     assert polydata.n_cells == polydata_out.n_cells
+    assert polydata.n_strips == polydata_out.n_strips
     assert polydata.n_points == polydata_out.n_points
 
     assert polydata.point_data == polydata_out.point_data

@@ -59,14 +59,20 @@ def _prepare_arrays_polydata(ds: PolyData, arrays: dict[str, NDArray[Any]]) -> N
         arrays["poly_connectivity"] = ds._connectivity_array  # noqa: SLF001
 
     # lines
-    if ds.n_lines:
-        lines = ds.GetLines()
+    lines = ds.GetLines()
+    if lines:
         arrays["line_offset"] = vtk_to_numpy(lines.GetOffsetsArray())
         arrays["line_connectivity"] = vtk_to_numpy(lines.GetConnectivityArray())
 
+    # strips
+    strips = ds.GetStrips()
+    if strips:
+        arrays["strip_offset"] = vtk_to_numpy(strips.GetOffsetsArray())
+        arrays["strip_connectivity"] = vtk_to_numpy(strips.GetConnectivityArray())
+
     # vertices
-    if ds.n_verts:
-        verts = ds.GetVerts()
+    verts = ds.GetVerts()
+    if verts:
         arrays["vert_offset"] = vtk_to_numpy(verts.GetOffsetsArray())
         arrays["vert_connectivity"] = vtk_to_numpy(verts.GetConnectivityArray())
 
@@ -337,6 +343,13 @@ def _segments_to_polydata(segment_dict: dict[str, Any]) -> PolyData:
             _get_or_raise(segment_dict, "line_connectivity"),
         )
         pdata.SetLines(lines)
+
+    if "strip_offset" in segment_dict:
+        strips = _numpy_to_vtk_cells(
+            _get_or_raise(segment_dict, "strip_offset"),
+            _get_or_raise(segment_dict, "strip_connectivity"),
+        )
+        pdata.SetStrips(strips)
 
     if "vert_offset" in segment_dict:
         verts = _numpy_to_vtk_cells(
