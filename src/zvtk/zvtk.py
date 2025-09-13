@@ -8,10 +8,13 @@ from pathlib import Path
 import struct
 from typing import TYPE_CHECKING
 from typing import Any
+import warnings
 
 import numpy as np
 import pyvista as pv
 from pyvista.core.grid import ImageData
+from pyvista.core.grid import RectilinearGrid
+from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import PolyData
 from pyvista.core.pointset import UnstructuredGrid
 from tqdm import tqdm
@@ -36,6 +39,16 @@ POINT_DATA_SUFFIX = "__point_data"
 CELL_DATA_SUFFIX = "__cell_data"
 FIELD_DATA_SUFFIX = "__field_data"
 IMAGE_DATA_SUFFIX = "__image_data"
+
+
+def _prepare_arrays_pointset(ds: PointSet, arrays: dict[str, NDArray[Any]]) -> None:
+    arrays["points"] = ds.points
+
+
+def _prepare_arrays_rgrid(ds: RectilinearGrid, arrays: dict[str, NDArray[Any]]) -> None:
+    arrays["x"] = ds.x
+    arrays["y"] = ds.y
+    arrays["z"] = ds.z
 
 
 def _prepare_arrays_polydata(ds: PolyData, arrays: dict[str, NDArray[Any]]) -> None:
@@ -82,7 +95,7 @@ def _prepare_metadata_imagedata(ds: ImageData, metadata: dict[str, Any]) -> None
     metadata[f"offset{IMAGE_DATA_SUFFIX}"] = ds.offset
 
 
-def compress(ds: DataSet, filename: Path | str, *, progress_bar: bool = False) -> None:  # noqa: PLR0915
+def compress(ds: DataSet, filename: Path | str, *, progress_bar: bool = False) -> None:  # noqa: PLR0915, C901
     """
     Compress a PyVista or VTK dataset.
 
@@ -117,6 +130,12 @@ def compress(ds: DataSet, filename: Path | str, *, progress_bar: bool = False) -
     elif isinstance(ds, ImageData):
         ds_type = "ImageData"
         _prepare_metadata_imagedata(ds, metadata)
+    elif isinstance(ds, PointSet):
+        ds_type = "PointSet"
+        _prepare_arrays_pointset(ds, arrays)
+    elif isinstance(ds, RectilinearGrid):
+        ds_type = "RectilinearGrid"
+        _prepare_arrays_rgrid(ds, arrays)
     else:
         msg = f"Unsupported type {type(ds)}"
         raise TypeError(msg)
@@ -330,6 +349,12 @@ def _segments_to_polydata(segment_dict: dict[str, Any]) -> PolyData:
     return pdata
 
 
+def _segments_to_pointset(segment_dict: dict[str, Any]) -> PointSet:
+    pset = PointSet(_get_or_raise(segment_dict, "points"))
+    _add_data(pset, segment_dict)
+    return pset
+
+
 def _segments_to_imagedata(segment_dict: dict[str, Any], metadata: dict[str, Any]) -> ImageData:
     image_data = ImageData(
         dimensions=metadata[f"dimensions{IMAGE_DATA_SUFFIX}"],
@@ -341,6 +366,16 @@ def _segments_to_imagedata(segment_dict: dict[str, Any], metadata: dict[str, Any
 
     _add_data(image_data, segment_dict)
     return image_data
+
+
+def _segments_to_rgrid(segment_dict: dict[str, Any]) -> RectilinearGrid:
+    rgrid = RectilinearGrid(
+        _get_or_raise(segment_dict, "x"),
+        _get_or_raise(segment_dict, "y"),
+        _get_or_raise(segment_dict, "z"),
+    )
+    _add_data(rgrid, segment_dict)
+    return rgrid
 
 
 def _apply_metadata(ds: DataSet, metadata: dict[str, Any]) -> None:
@@ -411,6 +446,14 @@ def decompress(filename: Path | str) -> DataSet:
     metadata_raw = segment_dict.pop("__metadata__")
     metadata = json.loads(metadata_raw.tobytes().decode("utf-8"))
 
+    if metadata["FILE_VERSION"] > FILE_VERSION:
+        warnings.warn(
+            f"The file version {metadata['FILE_VERSION']} of this zvtk file is newer "
+            f"than the version supported by this library {FILE_VERSION}. This file "
+            " may fail to read. Consider upgrading `zvtk`.",
+            stacklevel=0,
+        )
+
     # convert this to match when Python 3.9 goes EOL
     ds_type = metadata["type"]
     if ds_type == "UnstructuredGrid":
@@ -419,8 +462,12 @@ def decompress(filename: Path | str) -> DataSet:
         ds = _segments_to_polydata(segment_dict)
     elif ds_type == "ImageData":
         ds = _segments_to_imagedata(segment_dict, metadata)
+    elif ds_type == "PointSet":
+        ds = _segments_to_pointset(segment_dict)
+    elif ds_type == "RectilinearGrid":
+        ds = _segments_to_rgrid(segment_dict)
     else:
-        msg = f"Unsupported DataSet type `{ds_type}`"
+        msg = f"zvtk does not support DataSet type `{ds_type}` for compression"
         raise RuntimeError(msg)
 
     # dataset metadata

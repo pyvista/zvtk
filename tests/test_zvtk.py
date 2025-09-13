@@ -6,15 +6,17 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+import zvtk
+
 if TYPE_CHECKING:
     from pathlib import Path
 
     from pyvista.core.dataset import DataSet
     from pyvista.core.grid import ImageData
+    from pyvista.core.grid import RectilinearGrid
+    from pyvista.core.pointset import PointSet
     from pyvista.core.pointset import PolyData
     from pyvista.core.pointset import UnstructuredGrid
-
-import zvtk
 
 
 def populate_data(ds: DataSet) -> None:
@@ -23,10 +25,8 @@ def populate_data(ds: DataSet) -> None:
 
     # point data
     n_points = ds.n_points
-    n_cells = ds.n_cells
 
     pd = ds.point_data
-    cd = ds.cell_data
     pd["int8_data"] = rng.integers(-128, 127, n_points, dtype=np.int8)
     pd["int16_data"] = rng.integers(-32768, 32767, n_points, dtype=np.int16)
     pd["int32_data"] = rng.integers(-2147483648, 2147483647, n_points, dtype=np.int32)
@@ -41,14 +41,11 @@ def populate_data(ds: DataSet) -> None:
     pd["float64_data"] = rng.random(n_points, dtype=np.float64)
 
     # cell data
-    cd["int32_data"] = rng.integers(-2147483648, 2147483647, n_cells, dtype=np.int32)
-    cd["float64_data"] = rng.random(n_cells, dtype=np.float64)
-
-    # field data
-    n = 10  # arbitrary size for field data
-    ds.field_data["int32_field"] = np.arange(n, dtype=np.int32)
-    ds.field_data["float64_field"] = rng.random(n, dtype=np.float64)
-    ds.field_data["uint8_field"] = rng.integers(0, 255, n, dtype=np.uint8)
+    n_cells = ds.n_cells
+    if n_cells:
+        cd = ds.cell_data
+        cd["int32_data"] = rng.integers(-2147483648, 2147483647, n_cells, dtype=np.int32)
+        cd["float64_data"] = rng.random(n_cells, dtype=np.float64)
 
     # point data
     scalars_name = "scalars"
@@ -68,21 +65,28 @@ def populate_data(ds: DataSet) -> None:
     ds.point_data.active_normals_name = normals_name
 
     # cell data
-    scalars_name = "scalars"
-    ds.cell_data.set_array(np.arange(ds.n_cells), scalars_name)
-    ds.cell_data.active_scalars_name = scalars_name
+    if n_cells:
+        scalars_name = "scalars"
+        ds.cell_data.set_array(np.arange(ds.n_cells), scalars_name)
+        ds.cell_data.active_scalars_name = scalars_name
 
-    vectors_name = "vectors"
-    ds.cell_data.set_array(rng.random((ds.n_cells, 3)), vectors_name)
-    ds.cell_data.active_vectors_name = vectors_name
+        vectors_name = "vectors"
+        ds.cell_data.set_array(rng.random((ds.n_cells, 3)), vectors_name)
+        ds.cell_data.active_vectors_name = vectors_name
 
-    textures_name = "textures"
-    ds.cell_data.set_array(rng.random((ds.n_cells, 2)), textures_name)
-    ds.cell_data.active_texture_coordinates_name = textures_name
+        textures_name = "textures"
+        ds.cell_data.set_array(rng.random((ds.n_cells, 2)), textures_name)
+        ds.cell_data.active_texture_coordinates_name = textures_name
 
-    normals_name = "normals"
-    ds.cell_data.set_array(rng.random((ds.n_cells, 3)), normals_name)
-    ds.cell_data.active_normals_name = normals_name
+        normals_name = "normals"
+        ds.cell_data.set_array(rng.random((ds.n_cells, 3)), normals_name)
+        ds.cell_data.active_normals_name = normals_name
+
+    # field data
+    n = 10  # arbitrary size for field data
+    ds.field_data["int32_field"] = np.arange(n, dtype=np.int32)
+    ds.field_data["float64_field"] = rng.random(n, dtype=np.float64)
+    ds.field_data["uint8_field"] = rng.integers(0, 255, n, dtype=np.uint8)
 
 
 def test_ugrid(ugrid: UnstructuredGrid, tmp_path: Path) -> None:
@@ -146,3 +150,40 @@ def test_imagedata(imagedata: ImageData, tmp_path: Path) -> None:
     assert imagedata.cell_data == imagedata_out.cell_data
     assert imagedata.field_data == imagedata_out.field_data
     assert imagedata == imagedata_out
+
+
+def test_pointset(pointset: PointSet, tmp_path: Path) -> None:
+    """Test compressing a pointset."""
+    populate_data(pointset)
+
+    tmp_filename = tmp_path / "pointset.zvtk"
+    zvtk.compress(pointset, tmp_filename)
+    pointset_out = zvtk.decompress(tmp_filename)
+
+    assert pointset.n_points == pointset_out.n_points
+
+    assert pointset.point_data == pointset_out.point_data
+    assert pointset.field_data == pointset_out.field_data
+    assert pointset == pointset_out
+
+
+def test_rectilineargrid(rgrid: RectilinearGrid, tmp_path: Path) -> None:
+    """Test compressing a RectilinearGrid."""
+    populate_data(rgrid)
+
+    tmp_filename = tmp_path / "rgrid.zvtk"
+    zvtk.compress(rgrid, tmp_filename)
+    rgrid_out = zvtk.decompress(tmp_filename)
+
+    assert rgrid.dimensions == rgrid_out.dimensions
+    assert rgrid.n_points == rgrid_out.n_points
+    assert rgrid.n_cells == rgrid_out.n_cells
+
+    assert np.array_equal(rgrid.x, rgrid_out.x)
+    assert np.array_equal(rgrid.y, rgrid_out.y)
+    assert np.array_equal(rgrid.z, rgrid_out.z)
+
+    assert rgrid.point_data == rgrid_out.point_data
+    assert rgrid.cell_data == rgrid_out.cell_data
+    assert rgrid.field_data == rgrid_out.field_data
+    assert rgrid == rgrid_out
