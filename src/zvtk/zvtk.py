@@ -34,10 +34,6 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
     from pyvista.core.dataset import DataSet
 
-# Maximum number of set threads before relying on zstandard to automatically
-# set them
-MAX_SET_THREADS = 8
-
 FILE_VERSION = 0
 FILE_VERSION_KEY = "FILE_VERSION"
 DS_TYPE_KEY = "ds_type"
@@ -169,6 +165,18 @@ class Metadata:
         return cls(**raw)
 
 
+def _set_n_threads(n_threads: int | None, n_bytes: int, max_manual_threads: int = 8) -> int:
+    # Maximum number of set threads before relying on zstandard to
+    # automatically set them
+
+    if n_threads is None:
+        size_mb = n_bytes / 1024**2
+        n_threads = int(size_mb // 2)  # rough guess
+        n_threads = -1 if n_threads > max_manual_threads else n_threads
+
+    return n_threads
+
+
 def _add_cell_array(
     arrays: dict[str, np.ndarray],
     name: str,
@@ -252,7 +260,7 @@ def write(  # noqa: C901, PLR0913
     progress_bar: bool = False,
     force_int32: bool = True,
     level: int = 3,
-    n_threads: int = 0,
+    n_threads: int | None = None,
 ) -> None:
     """
     Compress a PyVista or VTK dataset.
@@ -286,7 +294,7 @@ def write(  # noqa: C901, PLR0913
         22. Lower values generally yield faster operations with lower
         compression ratios. Higher values are generally slower but compress
         better.
-    n_threads : int, default: 0
+    n_threads : int, optional
         Number of threads to use when compressing. A value of ``-1`` uses all
         available cores and ``0`` disables multi-threading.
 
@@ -322,6 +330,9 @@ def write(  # noqa: C901, PLR0913
     field_data = ds.field_data
     for key, array in field_data.items():
         arrays[key + FIELD_DATA_SUFFIX] = array
+
+    n_bytes = sum([arr.nbytes for arr in arrays.values()])
+    n_threads = _set_n_threads(n_threads, n_bytes)
 
     # dataset metadata
     metadata = Metadata.from_dataset(ds, level)
@@ -638,10 +649,7 @@ class Reader:
 
     def read(self, n_threads: int | None = None) -> DataSet:
         """Read in the dataset from the zvtk file."""
-        if n_threads is None:
-            size_mb = self.nbytes / 1024**2
-            n_threads = int(size_mb // 2)  # rough guess
-            n_threads = -1 if n_threads > MAX_SET_THREADS else n_threads
+        n_threads = _set_n_threads(n_threads, self.nbytes)
 
         # Decompress with multi-threaded buffer API
         dctx = zstd.ZstdDecompressor()
