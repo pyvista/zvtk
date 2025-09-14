@@ -95,8 +95,8 @@ def test_ugrid(ugrid: UnstructuredGrid, tmp_path: Path) -> None:
     populate_data(ugrid)
 
     tmp_filename = tmp_path / "ugrid.zvtk"
-    zvtk.compress(ugrid, tmp_filename)
-    ugrid_out = zvtk.decompress(tmp_filename)
+    zvtk.write(ugrid, tmp_filename)
+    ugrid_out = zvtk.read(tmp_filename)
 
     assert ugrid.point_data == ugrid_out.point_data
     assert ugrid.cell_data == ugrid_out.cell_data
@@ -121,8 +121,8 @@ def test_polydata(polydata: PolyData, tmp_path: Path, *, strip: bool) -> None:
     populate_data(polydata)
 
     tmp_filename = tmp_path / "polydata.zvtk"
-    zvtk.compress(polydata, tmp_filename)
-    polydata_out = zvtk.decompress(tmp_filename)
+    zvtk.write(polydata, tmp_filename)
+    polydata_out = zvtk.read(tmp_filename)
 
     assert polydata.n_cells == polydata_out.n_cells
     assert polydata.n_strips == polydata_out.n_strips
@@ -139,8 +139,8 @@ def test_imagedata(imagedata: ImageData, tmp_path: Path) -> None:
     populate_data(imagedata)
 
     tmp_filename = tmp_path / "imagedata.zvtk"
-    zvtk.compress(imagedata, tmp_filename)
-    imagedata_out = zvtk.decompress(tmp_filename)
+    zvtk.write(imagedata, tmp_filename)
+    imagedata_out = zvtk.read(tmp_filename)
 
     assert imagedata.n_cells == imagedata_out.n_cells
     assert imagedata.n_points == imagedata_out.n_points
@@ -162,8 +162,8 @@ def test_pointset(pointset: PointSet, tmp_path: Path) -> None:
     populate_data(pointset)
 
     tmp_filename = tmp_path / "pointset.zvtk"
-    zvtk.compress(pointset, tmp_filename)
-    pointset_out = zvtk.decompress(tmp_filename)
+    zvtk.write(pointset, tmp_filename)
+    pointset_out = zvtk.read(tmp_filename)
 
     assert pointset.n_points == pointset_out.n_points
 
@@ -177,8 +177,8 @@ def test_rectilineargrid(rgrid: RectilinearGrid, tmp_path: Path) -> None:
     populate_data(rgrid)
 
     tmp_filename = tmp_path / "rgrid.zvtk"
-    zvtk.compress(rgrid, tmp_filename)
-    rgrid_out = zvtk.decompress(tmp_filename)
+    zvtk.write(rgrid, tmp_filename)
+    rgrid_out = zvtk.read(tmp_filename)
 
     assert rgrid.dimensions == rgrid_out.dimensions
     assert rgrid.n_points == rgrid_out.n_points

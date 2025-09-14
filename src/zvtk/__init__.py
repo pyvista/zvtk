@@ -10,7 +10,8 @@ try:
 except PackageNotFoundError:
     __version__ = "unknown"
 
-from zvtk.zvtk import compress
-from zvtk.zvtk import decompress
+from zvtk.zvtk import Reader
+from zvtk.zvtk import read
+from zvtk.zvtk import write
 
-__all__ = ["compress", "decompress"]
+__all__ = ["Reader", "read", "write"]

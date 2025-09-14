@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+from dataclasses import dataclass
+from dataclasses import field
 import json
 import mmap
 from pathlib import Path
@@ -34,6 +37,7 @@ if TYPE_CHECKING:
 
 FILE_VERSION = 0
 FILE_VERSION_KEY = "FILE_VERSION"
+DS_TYPE_KEY = "ds_type"
 VTK_UNSIGNED_CHAR = 3
 POINT_DATA_SUFFIX = "__point_data"
 CELL_DATA_SUFFIX = "__cell_data"
@@ -41,6 +45,8 @@ FIELD_DATA_SUFFIX = "__field_data"
 IMAGE_DATA_SUFFIX = "__image_data"
 OFFSET_SUFFIX = "_offset"
 CONNECTIVITY_SUFFIX = "_connectivity"
+METADATA_KEY_COMPRESSION = "COMPRESSION"
+METADATA_KEY_COMPRESSION_LVL = "COMPRESSION_LEVEL"
 
 # for all
 POINTS = "points"
@@ -55,6 +61,109 @@ POLYS = "polys"
 LINES = "lines"
 STRIPS = "strips"
 VERTS = "verts"
+
+
+@dataclass
+class ArrayInfo:
+    """Array metadata."""
+
+    shape: tuple[int, ...]
+    dtype: str
+
+
+@dataclass
+class Metadata:
+    """DataSet metadata."""
+
+    file_version: int
+    ds_type: str
+    compression: str
+    compression_level: int
+    n_points: int
+    points_dtype: str | None
+    n_cells: int
+    celltypes_dtype: str | None
+    point_data_keys: dict[str, ArrayInfo] = field(default_factory=dict)
+    cell_data_keys: dict[str, ArrayInfo] = field(default_factory=dict)
+    field_data_keys: dict[str, ArrayInfo] = field(default_factory=dict)
+    point_data_active_scalars_name: str | None = None
+    point_data_active_vectors_name: str | None = None
+    point_data_active_texture_coordinates_name: str | None = None
+    point_data_active_normals_name: str | None = None
+    cell_data_active_scalars_name: str | None = None
+    cell_data_active_vectors_name: str | None = None
+    cell_data_active_texture_coordinates_name: str | None = None
+    cell_data_active_normals_name: str | None = None
+
+    # Optional ImageData metadata
+    dimensions: tuple[int, int, int] | None = None
+    origin: tuple[float, float, float] | None = None
+    spacing: tuple[float, float, float] | None = None
+    direction_matrix: list[list[float]] | None = None
+    offset: int | None = None
+
+    @classmethod
+    def from_dataset(cls, ds: pv.DataSet, level: int) -> Metadata:
+        """Create metadata from a dataset."""
+
+        def _summarize(arrays: pv.DataSetAttributes) -> dict[str, ArrayInfo]:
+            return {k: ArrayInfo(shape=a.shape, dtype=str(a.dtype)) for k, a in arrays.items()}
+
+        kwargs: dict[str, Any] = {
+            "file_version": FILE_VERSION,
+            "ds_type": type(ds).__name__,
+            "compression": "zstandard",
+            "compression_level": level,
+            "n_points": ds.n_points,
+            "points_dtype": str(ds.points.dtype) if ds.n_points else None,
+            "n_cells": ds.n_cells,
+            "celltypes_dtype": str(ds.celltypes.dtype) if hasattr(ds, "celltypes") else None,
+            "point_data_keys": _summarize(ds.point_data),
+            "cell_data_keys": _summarize(ds.cell_data),
+            "field_data_keys": _summarize(ds.field_data),
+            "point_data_active_scalars_name": ds.point_data.active_scalars_name,
+            "point_data_active_vectors_name": ds.point_data.active_vectors_name,
+            "point_data_active_texture_coordinates_name": ds.point_data.active_texture_coordinates_name,  # noqa: E501
+            "point_data_active_normals_name": ds.point_data.active_normals_name,
+            "cell_data_active_scalars_name": ds.cell_data.active_scalars_name,
+            "cell_data_active_vectors_name": ds.cell_data.active_vectors_name,
+            "cell_data_active_texture_coordinates_name": ds.cell_data.active_texture_coordinates_name,  # noqa: E501
+            "cell_data_active_normals_name": ds.cell_data.active_normals_name,
+        }
+
+        if isinstance(ds, pv.ImageData):
+            kwargs.update(
+                dimensions=tuple(ds.dimensions),
+                origin=tuple(ds.origin),
+                spacing=tuple(ds.spacing),
+                direction_matrix=ds.direction_matrix.tolist(),
+                offset=ds.offset,
+            )
+
+        return cls(**kwargs)
+
+    def to_json(self) -> str:
+        """Convert to JSON."""
+
+        def encode(obj: Any) -> Any:  # noqa: ANN401
+            if isinstance(obj, ArrayInfo):
+                return asdict(obj)
+            return obj
+
+        return json.dumps(asdict(self), default=encode, separators=(",", ":"))
+
+    @classmethod
+    def from_json(cls, s: str) -> Metadata:
+        """Create from JSON."""
+        raw = json.loads(s)
+
+        def decode_mapping(m: dict[str, Any]) -> dict[str, ArrayInfo]:
+            return {k: ArrayInfo(**v) for k, v in m.items()}
+
+        raw["point_data_keys"] = decode_mapping(raw.get("point_data_keys", {}))
+        raw["cell_data_keys"] = decode_mapping(raw.get("cell_data_keys", {}))
+        raw["field_data_keys"] = decode_mapping(raw.get("field_data_keys", {}))
+        return cls(**raw)
 
 
 def _add_cell_array(
@@ -133,22 +242,14 @@ def _prepare_arrays_ugrid(
     )
 
 
-def _prepare_metadata_imagedata(ds: ImageData, metadata: dict[str, Any]) -> None:
-    metadata[f"dimensions{IMAGE_DATA_SUFFIX}"] = ds.dimensions
-    metadata[f"origin{IMAGE_DATA_SUFFIX}"] = ds.origin
-    metadata[f"spacing{IMAGE_DATA_SUFFIX}"] = ds.spacing
-    metadata[f"direction_matrix{IMAGE_DATA_SUFFIX}"] = ds.direction_matrix.tolist()
-    metadata[f"offset{IMAGE_DATA_SUFFIX}"] = ds.offset
-
-
-def compress(  # noqa: C901, PLR0915, PLR0913
+def write(  # noqa: C901, PLR0913
     ds: DataSet,
     filename: Path | str,
     *,
     progress_bar: bool = False,
     force_int32: bool = True,
     level: int = 3,
-    n_threads: int = 4,
+    n_threads: int = 0,
 ) -> None:
     """
     Compress a PyVista or VTK dataset.
@@ -182,13 +283,11 @@ def compress(  # noqa: C901, PLR0915, PLR0913
         22. Lower values generally yield faster operations with lower
         compression ratios. Higher values are generally slower but compress
         better.
-    n_threads : int, default: 4
+    n_threads : int, default: 0
         Number of threads to use when compressing. A value of ``-1`` uses all
-        available cores.
+        available cores and ``0`` disables multi-threading.
 
     """
-    metadata: dict[str, int | tuple | str] = {FILE_VERSION_KEY: FILE_VERSION}
-
     ds = pv.wrap(ds)
     filename = Path(filename)
 
@@ -198,19 +297,14 @@ def compress(  # noqa: C901, PLR0915, PLR0913
 
     arrays: dict[str, NDArray[Any]] = {}
     if isinstance(ds, PolyData):
-        ds_type = "PolyData"
         _prepare_arrays_polydata(ds, arrays, force_int32=force_int32)
     elif isinstance(ds, UnstructuredGrid):
-        ds_type = "UnstructuredGrid"
         _prepare_arrays_ugrid(ds, arrays, force_int32=force_int32)
     elif isinstance(ds, ImageData):
-        ds_type = "ImageData"
-        _prepare_metadata_imagedata(ds, metadata)
+        pass
     elif isinstance(ds, PointSet):
-        ds_type = "PointSet"
         _prepare_arrays_pointset(ds, arrays)
     elif isinstance(ds, RectilinearGrid):
-        ds_type = "RectilinearGrid"
         _prepare_arrays_rgrid(ds, arrays)
     else:
         msg = f"Unsupported type {type(ds)}"
@@ -227,21 +321,8 @@ def compress(  # noqa: C901, PLR0915, PLR0913
         arrays[key + FIELD_DATA_SUFFIX] = array
 
     # dataset metadata
-    metadata["type"] = ds_type
-    metadata["COMPRESSION"] = "zstandard"
-    metadata["point_data_active_scalars_name"] = point_data.active_scalars_name
-    metadata["point_data_active_vectors_name"] = point_data.active_vectors_name
-    metadata["point_data_active_texture_coordinates_name"] = (
-        point_data.active_texture_coordinates_name
-    )
-    metadata["point_data_active_normals_name"] = point_data.active_normals_name
-    metadata["cell_data_active_scalars_name"] = cell_data.active_scalars_name
-    metadata["cell_data_active_vectors_name"] = cell_data.active_vectors_name
-    metadata["cell_data_active_texture_coordinates_name"] = (
-        cell_data.active_texture_coordinates_name
-    )
-    metadata["cell_data_active_normals_name"] = cell_data.active_normals_name
-    meta_bytes = json.dumps(metadata, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    metadata = Metadata.from_dataset(ds, level)
+    meta_bytes = metadata.to_json().encode("utf-8")
 
     arrays["__metadata__"] = np.frombuffer(meta_bytes, dtype=np.uint8)
 
@@ -397,13 +478,13 @@ def _segments_to_pointset(segments: dict[str, Any]) -> PointSet:
     return pset
 
 
-def _segments_to_imagedata(segments: dict[str, Any], metadata: dict[str, Any]) -> ImageData:
+def _segments_to_imagedata(segments: dict[str, Any], metadata: Metadata) -> ImageData:
     image_data = ImageData(
-        dimensions=metadata[f"dimensions{IMAGE_DATA_SUFFIX}"],
-        origin=metadata[f"origin{IMAGE_DATA_SUFFIX}"],
-        spacing=metadata[f"spacing{IMAGE_DATA_SUFFIX}"],
-        direction_matrix=metadata[f"direction_matrix{IMAGE_DATA_SUFFIX}"],
-        offset=metadata[f"offset{IMAGE_DATA_SUFFIX}"],
+        dimensions=metadata.dimensions,
+        origin=metadata.origin,
+        spacing=metadata.spacing,
+        direction_matrix=metadata.direction_matrix,
+        offset=metadata.offset,
     )
 
     _add_data(image_data, segments)
@@ -420,30 +501,30 @@ def _segments_to_rgrid(segments: dict[str, Any]) -> RectilinearGrid:
     return rgrid
 
 
-def _apply_metadata(ds: DataSet, metadata: dict[str, Any]) -> None:
+def _apply_metadata(ds: DataSet, metadata: Metadata) -> None:
     """Apply metadata to a dataset."""
     pd = ds.point_data
-    if metadata.get("point_data_active_scalars_name"):
-        pd.active_scalars_name = metadata["point_data_active_scalars_name"]
-    if metadata.get("point_data_active_vectors_name"):
-        pd.active_vectors_name = metadata["point_data_active_vectors_name"]
-    if metadata.get("point_data_active_texture_coordinates_name"):
-        pd.active_texture_coordinates_name = metadata["point_data_active_texture_coordinates_name"]
-    if metadata.get("point_data_active_normals_name"):
-        pd.active_normals_name = metadata["point_data_active_normals_name"]
+    if metadata.point_data_active_scalars_name in pd:
+        pd.active_scalars_name = metadata.point_data_active_scalars_name
+    if metadata.point_data_active_vectors_name in pd:
+        pd.active_vectors_name = metadata.point_data_active_vectors_name
+    if metadata.point_data_active_texture_coordinates_name in pd:
+        pd.active_texture_coordinates_name = metadata.point_data_active_texture_coordinates_name
+    if metadata.point_data_active_normals_name in pd:
+        pd.active_normals_name = metadata.point_data_active_normals_name
 
     cd = ds.cell_data
-    if metadata.get("cell_data_active_scalars_name"):
-        cd.active_scalars_name = metadata["cell_data_active_scalars_name"]
-    if metadata.get("cell_data_active_vectors_name"):
-        cd.active_vectors_name = metadata["cell_data_active_vectors_name"]
-    if metadata.get("cell_data_active_texture_coordinates_name"):
-        cd.active_texture_coordinates_name = metadata["cell_data_active_texture_coordinates_name"]
-    if metadata.get("cell_data_active_normals_name"):
-        cd.active_normals_name = metadata["cell_data_active_normals_name"]
+    if metadata.cell_data_active_scalars_name in cd:
+        cd.active_scalars_name = metadata.cell_data_active_scalars_name
+    if metadata.cell_data_active_vectors_name in cd:
+        cd.active_vectors_name = metadata.cell_data_active_vectors_name
+    if metadata.cell_data_active_texture_coordinates_name in cd:
+        cd.active_texture_coordinates_name = metadata.cell_data_active_texture_coordinates_name
+    if metadata.cell_data_active_normals_name in cd:
+        cd.active_normals_name = metadata.cell_data_active_normals_name
 
 
-def decompress(filename: Path | str) -> DataSet:
+def read(filename: Path | str) -> DataSet:
     """Decompress a ``zvtk`` file."""
     filename = Path(filename)
     with filename.open("rb") as f:
@@ -485,19 +566,19 @@ def decompress(filename: Path | str) -> DataSet:
     segment_dict = dict(_reconstruct_array(s) for s in segments)
 
     # metadata array is JSON
-    metadata_raw = segment_dict.pop("__metadata__")
-    metadata = json.loads(metadata_raw.tobytes().decode("utf-8"))
+    metadata_raw = segment_dict.pop("__metadata__").tobytes().decode("utf-8")
+    metadata = Metadata.from_json(metadata_raw)
 
-    if metadata["FILE_VERSION"] > FILE_VERSION:
+    if metadata.file_version > FILE_VERSION:
         warnings.warn(
-            f"The file version {metadata['FILE_VERSION']} of this zvtk file is newer "
-            f"than the version supported by this library {FILE_VERSION}. This file "
-            " may fail to read. Consider upgrading `zvtk`.",
+            f"The file version {metadata.file_version} of this zvtk file is "
+            f"newer than the version supported by this library {FILE_VERSION}. This "
+            "file may fail to read. Consider upgrading `zvtk`.",
             stacklevel=0,
         )
 
     # convert this to match when Python 3.9 goes EOL
-    ds_type = metadata["type"]
+    ds_type = metadata.ds_type
     if ds_type == "UnstructuredGrid":
         ds = _segments_to_ugrid(segment_dict)
     elif ds_type == "PolyData":
@@ -516,3 +597,111 @@ def decompress(filename: Path | str) -> DataSet:
     _apply_metadata(ds, metadata)
 
     return ds
+
+
+class Reader:
+    """
+    Class to control zvtk file decompression.
+
+    Use this class in lieu of :func:`zvtk.read` to fine-tune reading in
+    compressed files. With this you can:
+    - Inspect the dataset before reading it.
+    - Control which arrays to read in.
+    - For files containing a :class:`pyvista.MultiBlock`, select which blocks
+      to read in.
+
+    Parameters
+    ----------
+    filename : pathlib.Path | str
+        Path to the file. Must end in ``.zvtk``.
+
+    """
+
+    def __init__(self, filename: Path | str) -> None:
+        """Initialize the decompressor."""
+        self._filename = Path(filename)
+
+        if self._filename.suffix != ".zvtk":
+            msg = f"Filename must end in '.zvtk', not '{self._filename.suffix}'"
+            raise ValueError(msg)
+
+        self._metadata = self._load_metadata()
+
+    def _load_metadata(self) -> Metadata:
+        """Load the metadata from the zvtk file without full decompression."""
+        # find the metadata
+        with self._filename.open("rb") as f:
+            f.seek(-8, 2)
+            num_frames = struct.unpack("<Q", f.read(8))[0]
+            f.seek(-(8 + num_frames * 16), 2)
+            meta_data = f.read(num_frames * 16)
+            frame_meta = [
+                struct.unpack("<QQ", meta_data[i * 16 : (i + 1) * 16]) for i in range(num_frames)
+            ]
+            frame_starts = [0] + [end for end, _ in frame_meta[:-1]]
+            frame_ends = [end for end, _ in frame_meta]
+            sizes = [dsz for _, dsz in frame_meta]
+            decompressed_sizes = struct.pack(f"={len(sizes)}Q", *sizes)
+            mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+
+        # prepare the metadata frame and decompress it
+        segments_bytes = b"".join(
+            struct.pack("=QQ", start, end - start) for start, end in zip(frame_starts, frame_ends)
+        )
+        frames = BufferWithSegments(mm, segments_bytes)
+
+        dctx = zstd.ZstdDecompressor()
+        segments = dctx.multi_decompress_to_buffer(
+            frames, decompressed_sizes=decompressed_sizes, threads=1
+        )
+
+        for s in segments:
+            name, arr = _reconstruct_array(s)
+            if name == "__metadata__":
+                metadata_raw = arr.tobytes().decode("utf-8")
+
+                return Metadata.from_json(metadata_raw)
+
+        msg = "No metadata found in zvtk file"
+        raise RuntimeError(msg)
+
+    def __repr__(self) -> str:
+        """Return a representation of the dataset's metadata."""
+        md = self._metadata
+        header = [
+            f"zvtk.Decompressor ({hex(id(self))})",
+            f"  File:               {self._filename}",
+            f"  Dataset Type:       {md.ds_type}",
+            f"  File Version:       {md.file_version}",
+            f"  Compression:        {md.compression}",
+            f"  Compression Level:  {md.compression_level}",
+            f"  N Points:           {md.n_points} ({md.points_dtype})",
+            f"  N Cells:            {md.n_cells}",
+        ]
+
+        def _format_dsa(name: str, arrays: dict[str, ArrayInfo]) -> list[str]:
+            if not arrays:
+                return []
+            lines = []
+            if arrays:
+                lines.append(f"  {name} arrays:")
+                for k, info in arrays.items():
+                    shape = tuple(info.shape)
+                    lines.append(f"      {k:<24} {info.dtype:<10} {shape}")
+            return lines
+
+        # Point data
+        header.extend(_format_dsa("Point", md.point_data_keys))
+
+        # Cell data
+        header.extend(_format_dsa("Cell", md.cell_data_keys))
+
+        # Field data
+        if md.field_data_keys:
+            lines = ["  Field arrays"]
+            for k, info in md.field_data_keys.items():
+                shape = tuple(info.shape)
+                lines.append(f"      {k:<24} {info.dtype:<10} {shape}")
+            header.extend(lines)
+
+        return "\n".join(header)
