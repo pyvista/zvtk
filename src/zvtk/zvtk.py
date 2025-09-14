@@ -259,16 +259,16 @@ def write(  # noqa: C901, PLR0913
     """
     Compress a PyVista or VTK dataset.
 
-    Supports the following file types.
+    Supports the following classes.
 
-    * ImageData
-    * PolyData
-    * RectilinearGrid
-    * StructuredGrid
-    * UnstructuredGrid
+    * :class:`pyvista.ImageData`
+    * :class:`pyvista.PolyData`
+    * :class:`pyvista.RectilinearGrid`
+    * :class:`pyvista.StructuredGrid`
+    * :class:`pyvista.UnstructuredGrid`
 
     All file types should end in ``.zvtk``, borrowing both from the legacy
-    VTK extension and the ``zst`` file type.
+    VTK extension ``.vtk`` and the ``.zst`` file types.
 
     Parameters
     ----------

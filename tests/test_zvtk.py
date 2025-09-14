@@ -363,3 +363,20 @@ def test_reader_repr(ugrid: UnstructuredGrid, tmp_path: Path) -> None:
     assert "Point arrays" not in repr_no_data_str
     assert "Cell arrays" not in repr_no_data_str
     assert "Field arrays" not in repr_no_data_str
+
+
+def test_compression_level(tmp_path: Path) -> None:
+    """Test setting compression level changes resulting file size."""
+    tmp_filename = tmp_path / "tmp.zvtk"
+    ds = ImageData(dimensions=(30, 30, 30)).cast_to_unstructured_grid()
+
+    cell_bytes = ds.celltypes.nbytes + ds.cell_connectivity.nbytes + ds.offset.nbytes
+    nbytes_orig = int(cell_bytes // 2) + ds.points.nbytes
+
+    sizes = []
+    for level in [-10, 10, 20]:
+        zvtk.write(ds, tmp_filename, level=level)
+        sizes.append(tmp_filename.stat().st_size)
+
+    assert np.array_equal(np.sort(sizes)[::-1], sizes)
+    assert (np.array(sizes) < nbytes_orig).all()
