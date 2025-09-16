@@ -77,12 +77,15 @@ jobs:
           pip install --upgrade pip build twine
           python -m build && python -m twine check dist/*
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Set up vtk
         if: ${{ matrix.vtk-version != 'latest' }}
-        run: pip install vtk==${{ matrix.vtk-version }}
+        run: uv pip install vtk==${{ matrix.vtk-version }}
 
       - name: Install with test dependencies
-        run: pip install .[tests]
+        run: uv pip install .[tests]
 
       - name: Unit Testing
         run: pytest -vv
