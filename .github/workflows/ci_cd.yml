@@ -72,7 +72,7 @@ jobs:
           cache-dependency-path: pyproject.toml
 
       - name: Verify wheel
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.13'
         run: |
           pip install --upgrade pip build twine
           python -m build && python -m twine check dist/*
@@ -82,10 +82,10 @@ jobs:
 
       - name: Set up vtk
         if: ${{ matrix.vtk-version != 'latest' }}
-        run: uv pip install vtk==${{ matrix.vtk-version }}
+        run: uv pip install vtk==${{ matrix.vtk-version }} --system
 
       - name: Install with test dependencies
-        run: uv pip install .[tests]
+        run: uv pip install .[tests] --system
 
       - name: Unit Testing
         run: pytest -vv
