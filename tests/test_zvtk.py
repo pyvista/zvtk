@@ -261,7 +261,7 @@ def test_reader_array_selection(ugrid: UnstructuredGrid, tmp_path: Path) -> None
 )
 def test_empty_objects(ds_type: str, tmp_path: Path) -> None:
     """Test reading/writing empty objects."""
-    filename = tmp_path / f"{ds_type}.zvtk"
+    filename = tmp_path / f"{ds_type.__name__}.zvtk"
     ds = ds_type()
     zvtk.write(ds, filename)
 
@@ -452,21 +452,3 @@ def test_multiblock_nested(multi_block_nested: MultiBlock, tmp_path: Path) -> No
     # Read entire hierarchy
     full_ds = reader.read()
     assert full_ds == multi_block_nested
-
-
-# def test_polydata_lz4(polydata: PolyData, tmp_path: Path) -> None:
-#     """Test unstructured grid."""
-#     populate_data(polydata)
-
-#     tmp_filename = tmp_path / "polydata.zvtk"
-#     zvtk.write(polydata, tmp_filename, compression="lz4")
-#     # polydata_out = zvtk.read(tmp_filename)
-
-#     # assert polydata.n_cells == polydata_out.n_cells
-#     # assert polydata.n_strips == polydata_out.n_strips
-#     # assert polydata.n_points == polydata_out.n_points
-
-#     # assert polydata.point_data == polydata_out.point_data
-#     # assert polydata.cell_data == polydata_out.cell_data
-#     # assert polydata.field_data == polydata_out.field_data
-#     # assert polydata == polydata_out
