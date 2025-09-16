@@ -16,7 +16,8 @@ import mmap
 from pathlib import Path
 import struct
 from typing import TYPE_CHECKING
-from typing import Any, Literal
+from typing import Any
+from typing import Literal
 import warnings
 
 import numpy as np
@@ -36,6 +37,7 @@ from vtkmodules.vtkCommonDataModel import vtkCellArray
 import zstandard as zstd
 from zstandard import BufferSegment
 from zstandard import BufferWithSegments
+from zstandard import BufferWithSegmentsCollection
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -44,7 +46,6 @@ if TYPE_CHECKING:
 FILE_VERSION = 0
 FILE_VERSION_KEY = "FILE_VERSION"
 DS_TYPE_KEY = "ds_type"
-VTK_UNSIGNED_CHAR = 3
 POINT_DATA_SUFFIX = "__point_data"
 CELL_DATA_SUFFIX = "__cell_data"
 FIELD_DATA_SUFFIX = "__field_data"
@@ -77,6 +78,11 @@ POLYS = "polys"
 LINES = "lines"
 STRIPS = "strips"
 VERTS = "verts"
+
+
+VTK_UNSIGNED_CHAR = 3
+VTK_FLOAT = 10
+VTK_DOUBLE = 11
 
 
 @dataclass
@@ -186,36 +192,46 @@ class DataSetMetadata:
             return {k: ArrayInfo(shape=a.shape, dtype=str(a.dtype)) for k, a in arrays.items()}
 
         # many pyvista calls require intermediate object assembly, side step or
-        # do once when possible
+        # do once when possible.
+
+        # Get points
         vtk_dtype = ds.GetPoints().GetDataType()
-        if vtk_dtype == 11:
-            
+        if vtk_dtype == VTK_FLOAT:
+            points_dtype = np.float32
+        elif vtk_dtype == VTK_DOUBLE:
+            points_dtype = np.float64
+        else:  # pragma: no cover
+            msg = "Invalid points datatype. Should be float or double"
+            raise RuntimeError(msg)
+
+        pd = ds.point_data
+        cd = ds.cell_data
 
         kwargs: dict[str, Any] = {
             "ds_type": type(ds).__name__,
             "uid": _make_ds_id(ds),
             "n_points": ds.n_points,
-            "points_dtype": str(ds.points.dtype) if ds.n_points else None,
+            "points_dtype": str(points_dtype),
             "n_cells": ds.n_cells,
             "celltypes_dtype": str(ds.celltypes.dtype) if hasattr(ds, "celltypes") else None,
-            "point_data_keys": _summarize(ds.point_data),
-            "cell_data_keys": _summarize(ds.cell_data),
+            "point_data_keys": _summarize(pd),
+            "cell_data_keys": _summarize(cd),
             "field_data_keys": _summarize(ds.field_data),
-            "point_data_active_scalars_name": ds.point_data.active_scalars_name,
-            "point_data_active_vectors_name": ds.point_data.active_vectors_name,
-            "point_data_active_texture_coordinates_name": ds.point_data.active_texture_coordinates_name,
-            "point_data_active_normals_name": ds.point_data.active_normals_name,
-            "cell_data_active_scalars_name": ds.cell_data.active_scalars_name,
-            "cell_data_active_vectors_name": ds.cell_data.active_vectors_name,
-            "cell_data_active_texture_coordinates_name": ds.cell_data.active_texture_coordinates_name,
-            "cell_data_active_normals_name": ds.cell_data.active_normals_name,
+            "point_data_active_scalars_name": pd.active_scalars_name,
+            "point_data_active_vectors_name": pd.active_vectors_name,
+            "point_data_active_texture_coordinates_name": pd.active_texture_coordinates_name,
+            "point_data_active_normals_name": pd.active_normals_name,
+            "cell_data_active_scalars_name": cd.active_scalars_name,
+            "cell_data_active_vectors_name": cd.active_vectors_name,
+            "cell_data_active_texture_coordinates_name": cd.active_texture_coordinates_name,
+            "cell_data_active_normals_name": cd.active_normals_name,
         }
 
         if isinstance(ds, pv.ImageData):
             kwargs.update(
-                dimensions=tuple(ds.dimensions),
-                origin=tuple(ds.origin),
-                spacing=tuple(ds.spacing),
+                dimensions=ds.dimensions,
+                origin=ds.origin,
+                spacing=ds.spacing,
                 direction_matrix=ds.direction_matrix.tolist(),
                 offset=ds.offset,
             )
@@ -338,11 +354,13 @@ def _add_arrays_ugrid(ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], *, 
     )
 
 
+# eventually add: compression: Compression = "zstandard",
+
+
 def write(  # noqa: PLR0913
     ds: DataSet,
     filename: Path | str,
     *,
-    compression: Compression = "zstandard",
     progress_bar: bool = False,
     force_int32: bool = True,
     level: int = 3,
@@ -375,7 +393,7 @@ def write(  # noqa: PLR0913
         applies to :class:`pyvista.PolyData` and
         :class:`pyvista.UnstructuredGrid`.
     progress_bar : bool, default: True
-        Show a progress bar while downloading.
+        Show a progress bar while writing to disk.
     level : int, default: 3
         Compression level. Valid values are all negative integers through
         22. Lower values generally yield faster operations with lower
@@ -388,20 +406,13 @@ def write(  # noqa: PLR0913
     """
     writer = Writer(ds, filename)
 
-    if compression == "zstandard":
-        writer.write(
-            progress_bar=progress_bar,
-            force_int32=force_int32,
-            level=level,
-            n_threads=n_threads,
-        )
-    else:
-        writer.write_lz4(
-            progress_bar=progress_bar,
-            force_int32=force_int32,
-            level=level,
-            n_threads=n_threads,
-        )
+    # if compression == "zstandard":
+    writer.write(
+        progress_bar=progress_bar,
+        force_int32=force_int32,
+        level=level,
+        n_threads=n_threads,
+    )
 
 
 def _make_ds_id(ds: DataSet) -> str:
@@ -411,13 +422,14 @@ def _make_ds_id(ds: DataSet) -> str:
 
 
 def _pack_array_metadata(name: str, arr: np.ndarray) -> bytes:
-    """Serialize array metadata for writing to a compressed stream."""
-    meta = struct.pack("<I", len(name)) + name.encode("utf-8")
-    meta += struct.pack("<I", arr.ndim)
-    for dim in arr.shape:
-        meta += struct.pack("<Q", dim)
-    meta += arr.dtype.str.encode("utf-8").ljust(16, b" ")
-    return meta
+    parts = [
+        struct.pack("<I", len(name)),
+        name.encode("utf-8"),
+        struct.pack("<I", arr.ndim),
+    ]
+    parts.extend(struct.pack("<Q", dim) for dim in arr.shape)
+    parts.append(arr.dtype.str.encode("utf-8").ljust(16, b" "))
+    return b"".join(parts)
 
 
 class Writer:
@@ -476,6 +488,7 @@ class Writer:
         ds_meta = DataSetMetadata.from_dataset(ds)
         self._arrays[f"{ds_id}{DS_METADATA_KEY}"] = ds_meta.to_array()
 
+    # @profile
     def write(
         self,
         *,
@@ -498,38 +511,30 @@ class Writer:
         )
         self._arrays[FILE_METADATA_KEY] = file_meta.to_array()
 
-        cctx = zstd.ZstdCompressor(level=level, threads=n_threads)
-        frame_meta = []  # list of tuples: (compressed_end, decompressed_size)
-        with self._filename.open("wb") as fout, cctx.stream_writer(fout) as compressor:
-            for name, arr in tqdm(self._arrays.items(), desc="Compressing", disable=not progress_bar):
-                # _pack_array_metadata(name: str, arr: np.ndarray) -> bytes:
-                # Prepare metadata
-                meta = struct.pack("<I", len(name)) + name.encode("utf-8")
-                meta += struct.pack("<I", arr.ndim)
-                for dim in arr.shape:
-                    meta += struct.pack("<Q", dim)
-                meta += arr.dtype.str.encode("utf-8").ljust(16, b" ")
+        # data to compress must include array metadata and the array
+        data: list[bytes] = []
+        for name, arr in self._arrays.items():
+            # must be a view of uint8 for no copy to bytes
+            arr_bytes = arr.ravel().view(np.uint8).data
+            data.extend([_pack_array_metadata(name, arr), arr_bytes])
 
-                # Write metadata to the compressed stream
-                compressor.write(meta)
-                compressor.write(arr.data)
+        # Compress multiple pieces of data as a single function call to minimize overhead
+        frame_meta: list[tuple[float, float]] = []  # (compressed_end, decompressed_size)
+        offset = 0
+        with self._filename.open("wb") as fout:
+            cctx = zstd.ZstdCompressor(level=level, threads=n_threads)
+            buff_seg = cctx.multi_compress_to_buffer(data, threads=n_threads)
+            for ii, cdata in enumerate(tqdm(buff_seg, disable=not progress_bar, desc="Writing frames")):
+                offset += fout.write(cdata)
+                frame_meta.append((offset, len(data[ii])))
 
-                # Record current frame end offset in compressed stream
-                # NOTE: stream_writer does not expose written bytes directly,
-                # so we track offsets by flushing using file tell()
-                compressor.flush(zstd.FLUSH_FRAME)  # ensures one frame
-                frame_end = fout.tell()
-                # record compressed end + decompressed size
-                frame_meta.append((frame_end, arr.nbytes + len(meta)))
-
-        # Write out zvtk frame sizes as the last bit. This isn't compatible
-        # with zstandard compression, but we're using this for decompression
-        with self._filename.open("ab") as fout:
-            fout.writelines(struct.pack("<QQ", off, dsz) for off, dsz in frame_meta)  # 16 bytes per frame
+            # finally, write out compressed and decompressed size of each segment
+            # 16 bytes per frame
+            fout.writelines(struct.pack("<QQ", off, dsz) for off, dsz in frame_meta)
             fout.write(struct.pack("<Q", len(frame_meta)))  # total frames at very end
 
 
-def _reconstruct_array(segment: BufferSegment) -> np.ndarray:
+def _reconstruct_array(meta_segment: BufferSegment, arr_segment: BufferSegment) -> np.ndarray:
     """
     Reconstruct a NumPy array from a single decompressed Zstd frame.
 
@@ -537,25 +542,37 @@ def _reconstruct_array(segment: BufferSegment) -> np.ndarray:
     ``[name_len:uint32][name:bytes][ndim:uint32][shape:Q*ndim][dtype:16 bytes][array data]``.
 
     """
-    buf = memoryview(segment)  # get a bytes-like view
+    meta_buf = memoryview(meta_segment)
 
     offset = 0
-    name_len = struct.unpack_from("<I", buf, offset)[0]
+    name_len = struct.unpack_from("<I", meta_buf, offset)[0]
     offset += 4
-    name = buf[offset : offset + name_len].tobytes().decode("utf-8")
+    name = meta_buf[offset : offset + name_len].tobytes().decode("utf-8")
     offset += name_len
 
-    ndim = struct.unpack_from("<I", buf, offset)[0]
+    ndim = struct.unpack_from("<I", meta_buf, offset)[0]
     offset += 4
 
-    shape = tuple(struct.unpack_from(f"<{ndim}Q", buf, offset))
+    shape = tuple(struct.unpack_from(f"<{ndim}Q", meta_buf, offset))
     offset += 8 * ndim
 
-    dtype_str = buf[offset : offset + 16].tobytes().strip().decode("utf-8")
+    dtype_str = meta_buf[offset : offset + 16].tobytes().strip().decode("utf-8")
     offset += 16
 
-    data = np.frombuffer(buf[offset:], dtype=np.dtype(dtype_str)).reshape(shape)
+    # finally construct the array using the array segment
+    data_buf = memoryview(arr_segment)
+    data = np.frombuffer(data_buf, dtype=np.dtype(dtype_str)).reshape(shape)
     return name, data
+
+
+def _raw_segments_to_arrays(
+    segments_raw: BufferWithSegmentsCollection,
+) -> dict[str, NDArray[Any]]:
+    segments = {}
+    for ii in range(int(len(segments_raw) / 2)):
+        name, arr = _reconstruct_array(segments_raw[ii * 2], segments_raw[ii * 2 + 1])
+        segments[name] = arr
+    return segments
 
 
 def _add_data(ds_id: str, ds: DataSet, segment_dict: dict[str, Any]) -> None:
@@ -858,17 +875,17 @@ class Reader:
         raise RuntimeError(msg)
 
     def _load_ds_meta(self, key: str) -> DataSetMetadata | MultiBlockMetadata:
-        index = self._metadata.frame_names.index(key)
+        index = self._metadata.frame_names.index(key) * 2  # times two for metadata
         dctx = zstd.ZstdDecompressor()
 
         # read in only the segment
         segments = dctx.multi_decompress_to_buffer(
-            [self._frames[index]],
-            decompressed_sizes=self._decompressed_sizes[index * 8 : (index + 1) * 8],
+            [self._frames[index], self._frames[index + 1]],
+            decompressed_sizes=self._decompressed_sizes[index * 8 : (index + 2) * 8],
             threads=0,  # tiny
         )
 
-        name, arr = _reconstruct_array(segments[0])
+        name, arr = _reconstruct_array(*segments)
         if name.endswith(MULTIBLOCK_METADATA_KEY):
             return MultiBlockMetadata.from_array(arr)
         if name.endswith(DS_METADATA_KEY):
@@ -898,11 +915,11 @@ class Reader:
 
         # read in only the last segment
         segments = dctx.multi_decompress_to_buffer(
-            [self._frames[-1]],
-            decompressed_sizes=self._decompressed_sizes[-8:],
+            [self._frames[-2], self._frames[-1]],
+            decompressed_sizes=self._decompressed_sizes[-16:],
             threads=0,  # tiny
         )
-        name, arr = _reconstruct_array(segments[0])
+        name, arr = _reconstruct_array(*segments)
         if name != FILE_METADATA_KEY:  # pragma: no cover
             msg = "File metadata not found in zvtk file."
             raise RuntimeError(msg)
@@ -938,30 +955,41 @@ class Reader:
         selected_frames = []
         sizes = []
         selected_frame_names = set(frame_names) - excluded
+        n_frames = len(frame_names)
+        if len(selected_frame_names) == n_frames:
+            # Decompress with multi-threaded buffer API
+            dctx = zstd.ZstdDecompressor()
+            segments_raw = dctx.multi_decompress_to_buffer(
+                self._frames,
+                decompressed_sizes=self._decompressed_sizes,
+                threads=_set_n_threads(n_threads, self.nbytes),
+            )
 
-        for ii, frame_name in enumerate(frame_names):
-            if not frame_name.startswith(ds_id):
-                continue
-            if frame_name in selected_frame_names:
-                selected_frames.append(self._frames[ii])
-                # 8 bytes per frame
-                sizes.append(self._decompressed_sizes[ii * 8 : (ii + 1) * 8])
+        elif selected_frame_names:
+            for ii, frame_name in enumerate(frame_names):
+                if not frame_name.startswith(ds_id):
+                    continue
+                if frame_name in selected_frame_names:
+                    idx = ii * 2  # double for metadata
+                    selected_frames.extend([self._frames[idx], self._frames[idx + 1]])
+                    # 8 bytes per frame
+                    sizes.append(self._decompressed_sizes[idx * 8 : (idx + 2) * 8])
 
-        # Decompress with multi-threaded buffer API
-        d_sizes_bytes = b"".join(sizes)
-        ds_size = np.frombuffer(d_sizes_bytes, dtype=np.uint64).sum()
-        n_threads = _set_n_threads(n_threads, ds_size)
-        if selected_frames:
+            # Decompress with multi-threaded buffer API
+            d_sizes_bytes = b"".join(sizes)
+            ds_size = np.frombuffer(d_sizes_bytes, dtype=np.uint64).sum()
+            n_threads = _set_n_threads(n_threads, ds_size)
             dctx = zstd.ZstdDecompressor()
             segments_raw = dctx.multi_decompress_to_buffer(
                 selected_frames,
                 decompressed_sizes=d_sizes_bytes,
                 threads=n_threads,
             )
-            segments = dict(_reconstruct_array(segment) for segment in segments_raw)
         else:
-            segments = {}
+            msg = "No selected frames"
+            raise RuntimeError(msg)
 
+        segments = _raw_segments_to_arrays(segments_raw)
         return self._segments_to_ds(ds_id, segments)
 
     def _load_ds_reader(self) -> _DataSetReader:  # noqa: C901
@@ -975,9 +1003,10 @@ class Reader:
         selected_frames = []
         sizes = []
         for ii, name in enumerate(frame_names):
+            idx = ii * 2  # double for metadata
             if name.endswith((MULTIBLOCK_METADATA_KEY, DS_METADATA_KEY)):
-                selected_frames.append(self._frames[ii])
-                sizes.append(self._decompressed_sizes[ii * 8 : (ii + 1) * 8])
+                selected_frames.extend([self._frames[idx], self._frames[idx + 1]])
+                sizes.append(self._decompressed_sizes[idx * 8 : (idx + 2) * 8])
 
         d_sizes_bytes = b"".join(sizes)
         dctx = zstd.ZstdDecompressor()
@@ -986,7 +1015,7 @@ class Reader:
             decompressed_sizes=d_sizes_bytes,
             threads=0,
         )
-        segments = dict(_reconstruct_array(segment) for segment in segments_raw)
+        segments = _raw_segments_to_arrays(segments_raw)
 
         # decode metadata objects
         mblock_meta: dict[str, MultiBlockMetadata] = {}
@@ -1035,7 +1064,7 @@ class Reader:
             decompressed_sizes=self._decompressed_sizes,
             threads=n_threads,
         )
-        segments = dict(_reconstruct_array(segment) for segment in segments_raw)
+        segments = _raw_segments_to_arrays(segments_raw)
 
         mblock_meta = []
         dataset_map: dict[str, DataSet] = {}
