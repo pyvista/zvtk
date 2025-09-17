@@ -125,6 +125,9 @@ class MultiBlockMetadata:
     uid: str
     children: list[str]
     ds_type = "MultiBlock"
+    children_keys: list[str]
+
+    # optional and used for ds reader
     children_ds: dict[str, MultiBlockMetadata | DataSetMetadata] | None = None
 
     def to_json(self) -> str:
@@ -141,14 +144,6 @@ class MultiBlockMetadata:
         """Create from a numpy uint8 array."""
         raw_json = arr.tobytes().decode("utf-8")  # copy, but it's tiny
         return MultiBlockMetadata.from_json(raw_json)
-
-    @classmethod
-    def from_multiblock(cls, mblock: MultiBlock) -> MultiBlockMetadata:
-        """Create from a multiblock."""
-        return cls(
-            uid=_make_ds_id(mblock),
-            children=[_make_ds_id(ds) for ds in mblock],
-        )
 
     def to_array(self) -> NDArray[np.uint8]:
         """Output as a numpy uint8 array."""
@@ -479,7 +474,11 @@ class Writer:
                 child_ids.append(_make_ds_id(ds_child))
                 self._add_ds_arrays(ds_child, force_int32=force_int32)
 
-            multi_meta = MultiBlockMetadata(uid=ds_id, children=child_ids)
+            multi_meta = MultiBlockMetadata(
+                uid=ds_id,
+                children=child_ids,
+                children_keys=ds.keys(),
+            )
             self._arrays[f"{ds_id}{MULTIBLOCK_METADATA_KEY}"] = multi_meta.to_array()
 
             return
@@ -652,7 +651,7 @@ def _numpy_to_vtk_cells(
     elif dtype == np.int64:
         vtk_dtype = vtkTypeInt64Array().GetDataType()
     else:  # pragma: no cover
-        msg = f"Invalid faces dtype {dtype}. Expected np.int32 or np.int64"
+        msg = f"Invalid faces dtype {dtype}. Expected `np.int32` or `np.int64`."
         raise ValueError(msg)
     connectivity_vtk = numpy_to_vtk(connectivity, deep=False, array_type=vtk_dtype)
 
@@ -783,8 +782,8 @@ class _DataSetReader:
             return self._parent._read_ds(self.uid)  # noqa: SLF001
         if isinstance(self._meta, MultiBlockMetadata):
             mb = MultiBlock()
-            for child in self._children:
-                mb.append(child.read())
+            for key, child in zip(self._meta.children_keys, self._children):
+                mb[key] = child.read()
             return mb
 
         msg = "Unknown metadata type"
@@ -1105,11 +1104,11 @@ class Reader:
         # datasets or other multiblocks (nested multiblocks).
         for m in mblock_meta:
             mb = multiblock_map[m.uid]
-            for child_uid in m.children:
+            for child_key, child_uid in zip(m.children_keys, m.children):
                 if child_uid in multiblock_map:
-                    mb.append(multiblock_map[child_uid])
+                    mb[child_key] = multiblock_map[child_uid]
                 elif child_uid in dataset_map:
-                    mb.append(dataset_map[child_uid])
+                    mb[child_key] = dataset_map[child_uid]
                 else:  # pragma: no cover
                     msg = f"Multiblock child '{child_uid}' not found for multiblock '{m.uid}'"
                     raise RuntimeError(msg)

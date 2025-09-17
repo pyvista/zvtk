@@ -90,7 +90,13 @@ def multi_block(
     imagedata: ImageData,
 ) -> MultiBlock:
     """Return a MultiBlock."""
-    return MultiBlock([rgrid, pointset, ugrid, polydata, imagedata])
+    mblock = MultiBlock()
+    mblock["RectilinearGrid"] = rgrid
+    mblock["PointSet"] = pointset
+    mblock["UnstructuredGrid"] = ugrid
+    mblock["PolyData"] = polydata
+    mblock["ImageData"] = imagedata
+    return mblock
 
 
 @pytest.fixture

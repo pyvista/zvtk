@@ -416,6 +416,7 @@ def test_multiblock(multi_block: MultiBlock, tmp_path: Path) -> None:
     zvtk.write(multi_block, tmp_filename)
     multi_block_out = zvtk.read(tmp_filename)
 
+    assert multi_block.keys() == multi_block_out.keys()
     assert multi_block == multi_block_out
 
 
