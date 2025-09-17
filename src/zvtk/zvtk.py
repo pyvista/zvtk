@@ -27,6 +27,7 @@ from pyvista.core.grid import ImageData
 from pyvista.core.grid import RectilinearGrid
 from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import PolyData
+from pyvista.core.pointset import StructuredGrid
 from pyvista.core.pointset import UnstructuredGrid
 from tqdm import tqdm
 from vtkmodules.util.numpy_support import numpy_to_vtk
@@ -236,6 +237,8 @@ class DataSetMetadata:
                 direction_matrix=ds.direction_matrix.tolist(),
                 offset=ds.offset,
             )
+        elif isinstance(ds, pv.StructuredGrid):
+            kwargs["dimensions"] = ds.dimensions
 
         return cls(**kwargs)
 
@@ -355,9 +358,12 @@ def _add_arrays_ugrid(ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], *, 
     )
 
 
+def _add_arrays_sgrid(ds: StructuredGrid, arrays: dict[str, NDArray[Any]]) -> None:
+    ds_id = _make_ds_id(ds)
+    arrays[f"{ds_id}{POINTS_KEY}"] = ds.points
+
+
 # eventually add: compression: Compression = "zstandard",
-
-
 def write(  # noqa: PLR0913
     ds: DataSet,
     filename: Path | str,
@@ -374,6 +380,7 @@ def write(  # noqa: PLR0913
 
     * :class:`pyvista.ImageData`
     * :class:`pyvista.PolyData`
+    * :class:`pyvista.StructuredGrid`
     * :class:`pyvista.RectilinearGrid`
     * :class:`pyvista.StructuredGrid`
     * :class:`pyvista.UnstructuredGrid`
@@ -457,6 +464,8 @@ class Writer:
             _add_arrays_ugrid(ds, self._arrays, force_int32=force_int32)
         elif isinstance(ds, ImageData):
             pass
+        elif isinstance(ds, StructuredGrid):
+            _add_arrays_sgrid(ds, self._arrays)
         elif isinstance(ds, PointSet):
             _add_arrays_pointset(ds, self._arrays)
         elif isinstance(ds, RectilinearGrid):
@@ -624,6 +633,12 @@ def _segments_to_ugrid(ds_id: str, segments: dict[str, Any]) -> UnstructuredGrid
         ugrid.SetCells(celltypes_vtk, cells)
 
     return ugrid
+
+
+def _segments_to_sgrid(ds_id: str, segments: dict[str, Any], metadata: DataSetMetadata) -> StructuredGrid:
+    sgrid = StructuredGrid(segments[f"{ds_id}{POINTS_KEY}"])
+    sgrid.dimensions = metadata.dimensions
+    return sgrid
 
 
 def _numpy_to_vtk_cells(
@@ -1123,6 +1138,8 @@ class Reader:
             ds = _segments_to_pointset(ds_id, segments)
         elif ds_type == "RectilinearGrid":
             ds = _segments_to_rgrid(ds_id, segments)
+        elif ds_type == "StructuredGrid":
+            ds = _segments_to_sgrid(ds_id, segments, ds_metadata)
         else:
             msg = f"zvtk does not support DataSet type `{ds_type}` for decompression"
             raise RuntimeError(msg)

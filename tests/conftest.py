@@ -11,11 +11,13 @@ import pyvista as pv
 from pyvista.core.composite import MultiBlock
 from pyvista.core.grid import RectilinearGrid
 from pyvista.core.pointset import PointSet
+from pyvista.core.pointset import StructuredGrid
 
 if TYPE_CHECKING:
     from pyvista.core.grid import ImageData
     from pyvista.core.pointset import PolyData
     from pyvista.core.pointset import UnstructuredGrid
+
 
 THIS_PATH = Path(__file__).parent
 
@@ -66,6 +68,17 @@ def rgrid() -> RectilinearGrid:
     yrng = np.arange(-10, 10, 5)
     zrng = np.arange(-10, 10, 1)
     return RectilinearGrid(xrng, yrng, zrng)
+
+
+@pytest.fixture
+def sgrid() -> StructuredGrid:
+    """Return a StructuredGrid."""
+    xrng = np.linspace(-10, 10)
+    yrng = np.linspace(-10, 10, 20)
+    x, y = np.meshgrid(xrng, yrng, indexing="ij")
+    r = np.sqrt(x**2 + y**2)
+    z = np.sin(r)
+    return StructuredGrid(x, y, z)
 
 
 @pytest.fixture

@@ -12,6 +12,7 @@ from pyvista.core.grid import ImageData
 from pyvista.core.grid import RectilinearGrid
 from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import PolyData
+from pyvista.core.pointset import StructuredGrid
 from pyvista.core.pointset import UnstructuredGrid
 
 import zvtk
@@ -192,6 +193,28 @@ def test_rectilineargrid(rgrid: RectilinearGrid, tmp_path: Path) -> None:
     assert rgrid.cell_data == rgrid_out.cell_data
     assert rgrid.field_data == rgrid_out.field_data
     assert rgrid == rgrid_out
+
+
+def test_sgrid(sgrid: StructuredGrid, tmp_path: Path) -> None:
+    """Test compressing a RectilinearGrid."""
+    populate_data(sgrid)
+
+    tmp_filename = tmp_path / "rgrid.zvtk"
+    zvtk.write(sgrid, tmp_filename)
+    sgrid_out = zvtk.read(tmp_filename)
+
+    assert sgrid.dimensions == sgrid_out.dimensions
+    assert sgrid.n_points == sgrid_out.n_points
+    assert sgrid.n_cells == sgrid_out.n_cells
+
+    assert np.array_equal(sgrid.x, sgrid_out.x)
+    assert np.array_equal(sgrid.y, sgrid_out.y)
+    assert np.array_equal(sgrid.z, sgrid_out.z)
+
+    assert sgrid.point_data == sgrid_out.point_data
+    assert sgrid.cell_data == sgrid_out.cell_data
+    assert sgrid.field_data == sgrid_out.field_data
+    assert sgrid == sgrid_out
 
 
 def test_reader_array_selection(ugrid: UnstructuredGrid, tmp_path: Path) -> None:
