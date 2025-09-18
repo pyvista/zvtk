@@ -478,8 +478,6 @@ class Writer:
             # placeholder, array insertion order matters
             self._arrays[f"{ds_id}{MULTIBLOCK_METADATA_KEY}"] = None
 
-            # We have to convert to a list of blocks for unique memory IDs in a
-            # handful of edge cases.
             child_ids = []
             for ds_child in ds:
                 # special handling none edge case
@@ -489,10 +487,12 @@ class Writer:
                     child_ids.append(_make_ds_id(ds_child))
                     self._add_ds_arrays(ds_child, force_int32=force_int32)
 
+            # edge case where multiblock can contain a NoneType key
+            children_keys = ["None" if key is None else key for key in ds.keys()]  # noqa: SIM118
             multi_meta = MultiBlockMetadata(
                 uid=ds_id,
                 children=child_ids,
-                children_keys=ds.keys(),
+                children_keys=children_keys,
             )
             self._arrays[f"{ds_id}{MULTIBLOCK_METADATA_KEY}"] = multi_meta.to_array()
 
