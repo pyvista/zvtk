@@ -1,4 +1,4 @@
-"""VTK compression library."""
+"""VTK zstandard compression library."""
 
 from __future__ import annotations
 
@@ -12,7 +12,8 @@ except PackageNotFoundError:  # pragma: no cover
 
 from zvtk.zvtk import FILE_VERSION
 from zvtk.zvtk import Reader
+from zvtk.zvtk import Writer
 from zvtk.zvtk import read
 from zvtk.zvtk import write
 
-__all__ = ["FILE_VERSION", "Reader", "read", "write"]
+__all__ = ["FILE_VERSION", "Reader", "Writer", "read", "write"]
