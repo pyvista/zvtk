@@ -6,7 +6,7 @@
 
 ### Usage
 
-100% plug and play with just about all VTK dataset types. Uses [PyVista](https://docs.pyvista.org/) under the hood.
+Compatible with all VTK dataset types. Uses [PyVista](https://docs.pyvista.org/) under the hood.
 
 ```py
 import zvtk
@@ -132,8 +132,9 @@ of 105.89 MB/s.
 This library, `zvtk`, writes out VTK datasets with minimal overhead and uses
 [Zstandard](https://github.com/facebook/zstd) for compression. Moreover, it's
 been implemented with multi-threading support for both read and write
-operations. Let's compress that file again but this time using `zvtk` using
-defaults:
+operations.
+
+Let's compress that file again but this time using `zvtk`:
 
 ```py
 >>> import zvtk
@@ -153,8 +154,11 @@ Compression Ratio:    3.019175309922273
 
 This gives us a write performance of 2167 MB/s using the default number of
 threads and compression level, resulting in a 20x speedup in write performance
-versus VTK's XML writer. Even when disabling multi-threading we can still
-achieve excellent performance:
+versus VTK's XML writer. This speedup is most noticeable for larger files:
+
+![Speedup vs. VTK's XML](benchmarks/figures/synthetic-fig3.png)
+
+Even when disabling multi-threading we can still achieve excellent performance:
 
 ```py
 >>> tstart = time.time()
@@ -172,7 +176,13 @@ Compression Ratio:    3.0188911592355683
 
 This amounts to a single-core compression rate of 685.18 MB/s, which is in agreement with Zstandard's [benchmarks](https://github.com/facebook/zstd#benchmarks).
 
-Reading it in is also fast. Comparing with VTK's XML reader using defaults:
+Note that the benefit of threading drops off rapidly past 8 threads, though part of this is due to the performance vs. efficiency cores of the CPU used for benchmarking (see below).
+
+![Read/Write Speed vs. Number of Threads](benchmarks/figures/zvtk-single-ds-fig3.png)
+
+---
+
+Reading in the dataset is also fast. Comparing with VTK's XML reader using defaults:
 
 ```py
 Read VTK XML
@@ -190,7 +200,7 @@ Read zstd
 563 ms ± 7.96 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 ```
 
-This is a 11x speedup for this dataset versus VTK's XML, and it's still fast
+This is an 11x speedup for this dataset versus VTK's XML, and it's still fast
 even with multi-threading disabled:
 
 ```py
@@ -200,20 +210,18 @@ even with multi-threading disabled:
 
 This amounts to 1796 MB/s for a single core, which is also in agreement with Zstandard's [benchmarks](https://github.com/facebook/zstd#benchmarks).
 
-Additionally, you can control the compression level
+Additionally, you can control Zstandard's compression level by setting `level=`. A quick benchmark for this dataset indicates the defaults give a reasonable performance vs. size tradeoff:
 
 ![Read/Write Speed vs. Compression Level](benchmarks/figures/zvtk-single-ds-fig4.png)
 
-These benchmarks were performed on a, a `i9-14900KF` running the Linux kernel
+Note that both `zvtk` and VTK's XML default compression give relatively constant compression ratios for this dataset across varying file sizes:
+
+![Compression Ratio vs. VTK's XML](benchmarks/figures/synthetic-fig4.png)
+
+These benchmarks were performed on an `i9-14900KF` running the Linux kernel
 `6.12.41` using `zstandard==0.24.0` from PyPI. Storage was a 2TB Samsung 990
 Pro without LUKS mounted at `/tmp`.
 
 ### Additional Information
 
-The `benchmarks/` directory contains additional benchmarks using many datasets, including all of applicable datasets in `pyvista.examples` (see [PyVista Dataset Gallery](https://docs.pyvista.org/api/examples/dataset_gallery#dataset-gallery)).
-
-![Speedup vs. VTK's XML](benchmarks/figures/synthetic-fig3.png)
-
-![Compression Ratio vs. VTK's XML](benchmarks/figures/synthetic-fig4.png)
-
-![Read/Write Speed vs. Number of Threads](benchmarks/figures/zvtk-single-ds-fig3.png)
+The `benchmarks/` directory contains additional benchmarks using many datasets, including all applicable datasets in `pyvista.examples` (see [PyVista Dataset Gallery](https://docs.pyvista.org/api/examples/dataset_gallery#dataset-gallery)).

@@ -8,8 +8,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pytest
 import pyvista as pv
+from pyvista import examples
 from pyvista.core.composite import MultiBlock
 from pyvista.core.grid import RectilinearGrid
+from pyvista.core.pointset import ExplicitStructuredGrid
 from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import StructuredGrid
 
@@ -79,6 +81,12 @@ def sgrid() -> StructuredGrid:
     r = np.sqrt(x**2 + y**2)
     z = np.sin(r)
     return StructuredGrid(x, y, z)
+
+
+@pytest.fixture
+def esgrid() -> ExplicitStructuredGrid:
+    """Return an ExplicitStructuredGrid."""
+    return examples.load_explicit_structured()
 
 
 @pytest.fixture

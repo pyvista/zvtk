@@ -25,6 +25,7 @@ import pyvista as pv
 from pyvista.core.composite import MultiBlock
 from pyvista.core.grid import ImageData
 from pyvista.core.grid import RectilinearGrid
+from pyvista.core.pointset import ExplicitStructuredGrid
 from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import PolyData
 from pyvista.core.pointset import StructuredGrid
@@ -332,8 +333,11 @@ def _add_arrays_polydata(ds: PolyData, arrays: dict[str, NDArray[Any]], *, force
     _add_cell_array(ds_id, arrays, VERTS, ds.GetVerts(), force_int32=force_int32)
 
 
-def _add_arrays_ugrid(ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], *, force_int32: bool = True) -> None:
-    ds_id = _make_ds_id(ds)
+def _add_arrays_ugrid(
+    ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], ds_id: str | None = None, *, force_int32: bool = True
+) -> None:
+    if ds_id is None:
+        ds_id = _make_ds_id(ds)
     arrays[f"{ds_id}{POINTS_KEY}"] = ds.points
     arrays[f"{ds_id}{CELL_TYPES_KEY}"] = ds.celltypes
 
@@ -352,6 +356,14 @@ def _add_arrays_ugrid(ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], *, 
         ds.GetPolyhedronFaceLocations(),
         force_int32=force_int32,
     )
+
+
+def _add_arrays_esgrid(
+    ds: ExplicitStructuredGrid, arrays: dict[str, NDArray[Any]], *, force_int32: bool = True
+) -> None:
+    ds_id = _make_ds_id(ds)
+    ugrid = ds.cast_to_unstructured_grid()
+    _add_arrays_ugrid(ugrid, arrays, ds_id, force_int32=force_int32)
 
 
 def _add_arrays_sgrid(ds: StructuredGrid, arrays: dict[str, NDArray[Any]]) -> None:
@@ -381,6 +393,7 @@ def write(  # noqa: PLR0913
     * :class:`pyvista.StructuredGrid`
     * :class:`pyvista.UnstructuredGrid`
     * :class:`pyvista.MultiBlock`
+    * :class:`pyvista.ExplicitStructuredGrid`
 
     All file types should end in ``.zvtk``, borrowing both from the legacy
     VTK extension ``.vtk`` and the ``.zst`` file types.
@@ -466,6 +479,8 @@ class Writer:
             _add_arrays_polydata(ds, self._arrays, force_int32=force_int32)
         elif isinstance(ds, UnstructuredGrid):
             _add_arrays_ugrid(ds, self._arrays, force_int32=force_int32)
+        elif isinstance(ds, ExplicitStructuredGrid):
+            _add_arrays_esgrid(ds, self._arrays, force_int32=force_int32)
         elif isinstance(ds, ImageData):
             pass
         elif isinstance(ds, StructuredGrid):
@@ -650,6 +665,10 @@ def _segments_to_ugrid(ds_id: str, segments: dict[str, Any]) -> UnstructuredGrid
         ugrid.SetCells(celltypes_vtk, cells)
 
     return ugrid
+
+
+def _segments_to_esgrid(ds_id: str, segments: dict[str, Any]) -> ExplicitStructuredGrid:
+    return _segments_to_ugrid(ds_id, segments).cast_to_explicit_structured_grid()
 
 
 def _segments_to_sgrid(ds_id: str, segments: dict[str, Any], metadata: DataSetMetadata) -> StructuredGrid:
@@ -1166,6 +1185,8 @@ class Reader:
             ds = _segments_to_rgrid(ds_id, segments)
         elif ds_type == "StructuredGrid":
             ds = _segments_to_sgrid(ds_id, segments, ds_metadata)
+        elif ds_type == "ExplicitStructuredGrid":
+            ds = _segments_to_esgrid(ds_id, segments)
         else:  # pragma: no cover
             msg = f"zvtk does not support DataSet type `{ds_type}` for decompression"
             raise RuntimeError(msg)

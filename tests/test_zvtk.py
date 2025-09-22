@@ -10,6 +10,7 @@ import pytest
 from pyvista.core.composite import MultiBlock
 from pyvista.core.grid import ImageData
 from pyvista.core.grid import RectilinearGrid
+from pyvista.core.pointset import ExplicitStructuredGrid
 from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import PolyData
 from pyvista.core.pointset import StructuredGrid
@@ -514,3 +515,37 @@ def test_multiblock_duplicate(ugrid: UnstructuredGrid, tmp_path: Path) -> None:
     mblock_out = zvtk.read(tmp_filename)
 
     assert mblock_out[0] is mblock_out[1]
+
+
+def test_esgrid(esgrid: ExplicitStructuredGrid, tmp_path: Path) -> None:
+    """Test read/write explicit structured grid."""
+    populate_data(esgrid)
+
+    tmp_filename = tmp_path / "esgrid.zvtk"
+    zvtk.write(esgrid, tmp_filename)
+    reader = zvtk.Reader(tmp_filename)
+    repr_str = repr(reader)
+
+    # check key metadata is mentioned
+    assert str(tmp_filename) in repr_str
+    assert type(esgrid).__name__ in repr_str
+    assert str(esgrid.n_points) in repr_str
+    assert str(esgrid.n_cells) in repr_str
+
+    # check that some of the point/cell/field arrays are listed
+    for arr_name in esgrid.point_data:
+        assert arr_name in repr_str
+    for arr_name in esgrid.cell_data:
+        assert arr_name in repr_str
+    for arr_name in esgrid.field_data:
+        assert arr_name in repr_str
+
+    esgrid.clear_data()
+    tmp_filename = tmp_path / "esgrid-cleared.zvtk"
+    zvtk.write(esgrid, tmp_filename)
+    reader = zvtk.Reader(tmp_filename)
+    repr_no_data_str = repr(reader)
+
+    assert "Point arrays" not in repr_no_data_str
+    assert "Cell arrays" not in repr_no_data_str
+    assert "Field arrays" not in repr_no_data_str
