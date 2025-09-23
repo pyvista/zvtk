@@ -35,7 +35,7 @@ jobs:
         run: pip install uv
 
       - name: Install pytest-pyvista with test dependencies
-        run: uv pip install .[docs]
+        run: uv pip install --system .[docs]
 
       - name: Setup headless display
         uses: pyvista/setup-headless-display-action@v4.2
@@ -77,17 +77,17 @@ jobs:
 
       - name: Set up vtk
         if: ${{ matrix.vtk-version != 'latest' }}
-        run: uv pip install vtk==${{ matrix.vtk-version }} --system
+        run: uv pip install --system vtk==${{ matrix.vtk-version }} --system
 
       - name: Install with test dependencies
-        run: uv pip install .[tests] --system
+        run: uv pip install --system .[tests] --system
 
       - name: Unit Testing
         run: pytest -vv
 
       - name: Build and verify wheels
         run: |
-          uv pip install build twine
+          uv pip install --system build twine
           python -m build
           python -m twine check dist/*
 

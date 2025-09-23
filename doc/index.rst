@@ -20,3 +20,10 @@
    :hidden:
 
    api
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Benchmarks
+   :hidden:
+
+   benchmarks/index
