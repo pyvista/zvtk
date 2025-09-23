@@ -227,6 +227,9 @@ def test_reader_array_selection(ugrid: UnstructuredGrid, tmp_path: Path) -> None
 
     reader = zvtk.Reader(tmp_filename)
 
+    table = reader.show_frame_compression()
+    assert "Point Data: int64_data" in table
+
     # by default, all arrays available
     assert reader.available_point_arrays
     assert reader.available_cell_arrays
@@ -430,6 +433,9 @@ def test_multiblock_reader_class(multi_block: MultiBlock, tmp_path: Path) -> Non
     zvtk.write(multi_block, tmp_filename)
     reader = zvtk.Reader(tmp_filename)
     assert "MultiBlock" in repr(reader)
+
+    table = reader.show_frame_compression()
+    assert "Point Data: int64_data" in table
 
     # test selective reading
     for ii in range(len(multi_block)):

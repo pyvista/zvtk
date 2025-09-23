@@ -47,3 +47,26 @@ reader
 reader.selected_point_arrays = {"scalars"}
 ds_in = reader.read()
 ds_in
+
+
+###############################################################################
+# Frame Compression
+# -----------------
+# Data written to a Zstandard file is typically written in "frames", and
+# ``zvtk`` writes out each array within a :class:`pyvista.DataSet` as an
+# individual frame. It's possible to see the compressed and decompressed sizes
+# of each individual frame written to a ``zvtk`` file using
+# :meth:`zvtk.Reader.show_frame_compression`. This can be helpful when
+# determining the compressability of the internal arrays of a
+# ``pyvista.DataSet``.
+#
+# In the case of a :class:`pyvista.ImageData`, the points and cells are both
+# implicit arrays and therefore only the dimensionality, spacing, and origin
+# need to be saved to disk as metadata and are not shown as a frame. Only the
+# point, cell, and field arrays will be shown.
+#
+# For additional reading, see `Zstandard - Concepts
+# <https://python-zstandard.readthedocs.io/en/latest/concepts.html>`_
+#
+
+print(reader.show_frame_compression())

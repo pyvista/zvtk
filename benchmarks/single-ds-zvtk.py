@@ -51,8 +51,7 @@ tmp_path = Path("/tmp/ds.zvtk")
 zvtk.write(ugrid, tmp_path)
 
 reader = zvtk.Reader(tmp_path)
-reader.show_frame_compression()
-1 / 0
+print(reader.show_frame_compression())
 
 
 ###############################################################################
