@@ -24,7 +24,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "zvtk"
 python_requires = ">=3.10"
-readme = "README.md"
+readme = "README.rst"
 version = '0.1.0dev0'
 
 [project.urls]

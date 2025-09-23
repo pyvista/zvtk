@@ -81,6 +81,7 @@ LINES = "lines"
 STRIPS = "strips"
 VERTS = "verts"
 
+KEY_N_CHAR = 16
 EMPTY_DS = "EMPTY_DS________"  # must be 16 char to align with UID
 
 VTK_UNSIGNED_CHAR = 3
@@ -445,7 +446,7 @@ def _pack_array_metadata(name: str, arr: np.ndarray) -> bytes:
         struct.pack("<I", arr.ndim),
     ]
     parts.extend(struct.pack("<Q", dim) for dim in arr.shape)
-    parts.append(arr.dtype.str.encode("utf-8").ljust(16, b" "))
+    parts.append(arr.dtype.str.encode("utf-8").ljust(KEY_N_CHAR, b" "))
     return b"".join(parts)
 
 
@@ -605,8 +606,8 @@ def _reconstruct_array(meta_segment: BufferSegment, arr_segment: BufferSegment) 
     shape = tuple(struct.unpack_from(f"<{ndim}Q", meta_buf, offset))
     offset += 8 * ndim
 
-    dtype_str = meta_buf[offset : offset + 16].tobytes().strip().decode("utf-8")
-    offset += 16
+    dtype_str = meta_buf[offset : offset + KEY_N_CHAR].tobytes().strip().decode("utf-8")
+    offset += KEY_N_CHAR
 
     # finally construct the array using the array segment
     data_buf = memoryview(arr_segment)
@@ -635,11 +636,11 @@ def _add_data(ds_id: str, ds: DataSet, segment_dict: dict[str, Any]) -> None:
 
         # uid size is 16
         if key.endswith(POINT_DATA_SUFFIX):
-            point_data.set_array(array, key[16 : -len(POINT_DATA_SUFFIX)])
+            point_data.set_array(array, key[KEY_N_CHAR : -len(POINT_DATA_SUFFIX)])
         if key.endswith(CELL_DATA_SUFFIX):
-            cell_data.set_array(array, key[16 : -len(CELL_DATA_SUFFIX)])
+            cell_data.set_array(array, key[KEY_N_CHAR : -len(CELL_DATA_SUFFIX)])
         if key.endswith(FIELD_DATA_SUFFIX):
-            field_data.set_array(array, key[16 : -len(FIELD_DATA_SUFFIX)])
+            field_data.set_array(array, key[KEY_N_CHAR : -len(FIELD_DATA_SUFFIX)])
 
 
 def _segments_to_ugrid(ds_id: str, segments: dict[str, Any]) -> UnstructuredGrid:
@@ -775,6 +776,15 @@ def read(filename: Path | str, n_threads: int | None = None) -> DataSet:
         Number of threads to use. If omitted, the best number of threads to
         decompress the file will be used.
 
+    Returns
+    -------
+    pyvista.DataSet
+
+    Examples
+    --------
+    >>> import zvtk
+    >>> ds = zvtk.read("dataset.zvtk")
+
     """
     return Reader(filename).read(n_threads=n_threads)
 
@@ -854,15 +864,54 @@ class Reader:
 
     Use this class in lieu of :func:`zvtk.read` to fine-tune reading in
     compressed files. With this you can:
-    - Inspect the dataset before reading it.
-    - Control which arrays to read in.
-    - For files containing a :class:`pyvista.MultiBlock`, select which blocks
+
+    * Inspect the dataset before reading it.
+    * Control which arrays to read in.
+    * For files containing a :class:`pyvista.MultiBlock`, select which blocks
       to read in.
 
     Parameters
     ----------
     filename : pathlib.Path | str
         Path to the file. Must end in ``.zvtk``.
+
+    Examples
+    --------
+    First write out an example dataset.
+
+    >>> import pyvista as pv
+    >>> import zvtk
+    >>> ds = pv.Sphere()
+    >>> zvtk.write(ds, "sphere.zvtk")
+
+    Create a reader.
+
+    >>> reader = zvtk.Reader("sphere.zvtk")
+    >>> reader
+    zvtk.Decompressor (0x7f1ed1496c00)
+      File:               sphere.zvtk
+      File Version:       0
+      Compression:        zstandard
+      Compression Level:  3
+      Dataset Type:       PolyData
+      N Points:           842 (<class 'numpy.float32'>)
+      N Cells:            1680
+      Point arrays:
+          Normals                  float32    (842, 3)
+
+    Disable reading in point arrays and read the dataset.
+
+    >>> reader.selected_point_arrays = set()
+    >>> ds_in = reader.read()
+    >>> ds_in
+    PolyData (0x7f1ece066ce0)
+      N Cells:    1680
+      N Points:   842
+      N Strips:   0
+      X Bounds:   -4.993e-01, 4.993e-01
+      Y Bounds:   -4.965e-01, 4.965e-01
+      Z Bounds:   -5.000e-01, 5.000e-01
+      N Arrays:   0
 
     """
 
@@ -886,14 +935,20 @@ class Reader:
                 msg = "Bad number of frames. File may be corrupted."
                 raise RuntimeError(msg)
 
-            f.seek(-(8 + num_frames * 16), 2)
-            meta_data = f.read(num_frames * 16)
-            frame_meta = [struct.unpack("<QQ", meta_data[i * 16 : (i + 1) * 16]) for i in range(num_frames)]
+            f.seek(-(8 + num_frames * KEY_N_CHAR), 2)
+            meta_data = f.read(num_frames * KEY_N_CHAR)
+            frame_meta = [
+                struct.unpack("<QQ", meta_data[i * KEY_N_CHAR : (i + 1) * KEY_N_CHAR]) for i in range(num_frames)
+            ]
             frame_starts = [0] + [end for end, _ in frame_meta[:-1]]
             frame_ends = [end for end, _ in frame_meta]
             sizes = [dsz for _, dsz in frame_meta]
             self._decompressed_sizes = struct.pack(f"={len(sizes)}Q", *sizes)
             self._mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+
+        self._compressed_sizes = np.array(
+            [frame_ends[0]] + [frame_ends[i] - frame_ends[i - 1] for i in range(1, len(frame_ends))], dtype=np.uint64
+        )
 
         # prepare the metadata frame and decompress it
         segments_bytes = b"".join(
@@ -980,7 +1035,7 @@ class Reader:
         # read in only the last segment
         segments = dctx.multi_decompress_to_buffer(
             [self._frames[-2], self._frames[-1]],
-            decompressed_sizes=self._decompressed_sizes[-16:],
+            decompressed_sizes=self._decompressed_sizes[-KEY_N_CHAR:],
             threads=0,  # tiny
         )
         name, arr = _reconstruct_array(*segments)
@@ -1089,7 +1144,7 @@ class Reader:
                 mb_meta = MultiBlockMetadata.from_array(segment)
                 mblock_meta[mb_meta.uid] = mb_meta
             elif key.endswith(DS_METADATA_KEY):
-                uid = key[:16]
+                uid = key[:KEY_N_CHAR]
                 ds_meta = DataSetMetadata.from_array(segment)
                 dataset_meta[uid] = ds_meta
 
@@ -1117,7 +1172,34 @@ class Reader:
         return _DataSetReader(mblock_meta[root_uid], self)
 
     def read(self, n_threads: int | None = None) -> DataSet:  # noqa: C901
-        """Read in the dataset from the zvtk file."""
+        """
+        Read in the dataset from the zvtk file.
+
+        Parameters
+        ----------
+        n_threads : int, optional
+            Number of threads to use when reading. A value of ``-1`` uses all
+            available cores and ``0`` disables multi-threading.
+
+        Examples
+        --------
+        >>> import pyvista as pv
+        >>> import zvtk
+        >>> ds = pv.Sphere()
+        >>> zvtk.write(ds, "sphere.zvtk")
+        >>> reader = zvtk.Reader("sphere.zvtk")
+        >>> ds_in = reader.read()
+        >>> ds_in
+        PolyData (0x7f1eca564520)
+          N Cells:    1680
+          N Points:   842
+          N Strips:   0
+          X Bounds:   -4.993e-01, 4.993e-01
+          Y Bounds:   -4.965e-01, 4.965e-01
+          Z Bounds:   -5.000e-01, 5.000e-01
+          N Arrays:   1
+
+        """
         if not isinstance(self._ds_metadata, MultiBlockMetadata):
             return self._read_ds(self._ds_metadata.uid, n_threads)
 
@@ -1138,8 +1220,8 @@ class Reader:
             if key.endswith(MULTIBLOCK_METADATA_KEY):
                 mblock_meta.append(MultiBlockMetadata.from_array(segment))
             elif key.endswith(DS_METADATA_KEY):
-                uid = key[:16]
-                dataset_map[uid] = self._segments_to_ds(key[:16], segments)
+                uid = key[:KEY_N_CHAR]
+                dataset_map[uid] = self._segments_to_ds(key[:KEY_N_CHAR], segments)
 
         # Build empty MultiBlock objects for every multiblock metadata entry.
         multiblock_map: dict[str, MultiBlock] = {m.uid: MultiBlock() for m in mblock_meta}
@@ -1197,14 +1279,64 @@ class Reader:
 
     @property
     def available_point_arrays(self) -> set[str]:
-        """Return a set of all point array names available in the dataset."""
+        """
+        Return a set of all point array names available in the dataset.
+
+        Returns
+        -------
+        set[str]
+            Names of all point arrays available in the dataset.
+
+        Examples
+        --------
+        First write out an example dataset.
+
+        >>> import pyvista as pv
+        >>> import numpy as np
+        >>> import zvtk
+        >>> ds = pv.Sphere()
+        >>> ds.point_data["pdata"] = np.arange(ds.n_points)
+        >>> zvtk.write(ds, "sphere.zvtk")
+
+        Create a reader and list available point arrays.
+
+        >>> reader = zvtk.Reader("sphere.zvtk")
+        >>> reader.available_point_arrays
+        {"Normals", "pdata"}
+
+        """
         if isinstance(self._ds_metadata, MultiBlockMetadata):
             return set()
         return set(self._ds_metadata.point_data_keys)
 
     @property
     def available_cell_arrays(self) -> set[str]:
-        """Return a set of all cell array names available in the dataset."""
+        """
+        Return a set of all cell array names available in the dataset.
+
+        Returns
+        -------
+        set[str]
+            Names of all cell arrays available in the dataset.
+
+        Examples
+        --------
+        First write out an example dataset.
+
+        >>> import pyvista as pv
+        >>> import numpy as np
+        >>> import zvtk
+        >>> ds = pv.Sphere()
+        >>> ds.point_data["pdata"] = np.arange(ds.n_points)
+        >>> zvtk.write(ds, "sphere.zvtk")
+
+        Create a reader and list available point arrays.
+
+        >>> reader = zvtk.Reader("sphere.zvtk")
+        >>> reader.available_point_arrays
+        {"Normals", "pdata"}
+
+        """
         if isinstance(self._ds_metadata, MultiBlockMetadata):
             return set()
         return set(self._ds_metadata.cell_data_keys)
@@ -1365,3 +1497,175 @@ class Reader:
                 header.extend(lines)
 
         return "\n".join(header)
+
+    # def compressed_sizes(self) -> NDArray[np.uint64]:
+    #     # Read compressed sizes from file metadata stored at end of file
+    #     compressed_sizes = []
+    #     with self._filename.open("rb") as f:
+    #         f.seek(-8, 2)
+    #         num_frames = struct.unpack("<Q", f.read(8))[0]
+    #         f.seek(-(8 + num_frames * KEY_N_CHAR), 2)
+    #         meta_data = f.read(num_frames * KEY_N_CHAR)
+
+    #         for i in range(num_frames):
+    #             frame_end, _ = struct.unpack("<QQ", meta_data[i * KEY_N_CHAR : (i + 1) * KEY_N_CHAR])
+    #             if i == 0:
+    #                 compressed_sizes.append(frame_end)
+    #             else:
+    #                 prev_end, _ = struct.unpack("<QQ", meta_data[(i - 1) * KEY_N_CHAR : i * KEY_N_CHAR])
+    #                 compressed_sizes.append(frame_end - prev_end)
+    #     # return np.array(compres
+
+    def show_frame_compression(self) -> None:
+        """
+        Display a table showing compression statistics for each frame in the dataset.
+
+        For MultiBlock datasets, shows a hierarchical view with compression stats
+        for each block. For regular datasets, shows stats for each array.
+        """
+        frame_names = self._metadata.frame_names
+        decompressed = self.decompressed_sizes
+        compressed_sizes = []
+
+        # Read compressed sizes from file metadata stored at end of file
+        with self._filename.open("rb") as f:
+            f.seek(-8, 2)
+            num_frames = struct.unpack("<Q", f.read(8))[0]
+            f.seek(-(8 + num_frames * KEY_N_CHAR), 2)
+            meta_data = f.read(num_frames * KEY_N_CHAR)
+
+            for i in range(num_frames):
+                frame_end, _ = struct.unpack("<QQ", meta_data[i * KEY_N_CHAR : (i + 1) * KEY_N_CHAR])
+                if i == 0:
+                    compressed_sizes.append(frame_end)
+                else:
+                    prev_end, _ = struct.unpack("<QQ", meta_data[(i - 1) * KEY_N_CHAR : i * KEY_N_CHAR])
+                    compressed_sizes.append(frame_end - prev_end)
+
+        # Group frames by dataset ID for better organization
+        frame_data = []
+        for name, comp_size, decomp_size in zip(frame_names, compressed_sizes, decompressed):
+            if name == FILE_METADATA_KEY:
+                continue
+
+            # Extract dataset ID and frame type
+            if len(name) >= KEY_N_CHAR:
+                ds_id = name[:KEY_N_CHAR]
+                suffix = name[KEY_N_CHAR:]
+            else:
+                ds_id = "unknown"
+                suffix = name
+
+            # Determine frame type and human-readable name
+            if suffix.endswith(DS_METADATA_KEY):
+                frame_type = "Dataset Metadata"
+            elif suffix.endswith(MULTIBLOCK_METADATA_KEY):
+                frame_type = "MultiBlock Metadata"
+            elif suffix.endswith(POINT_DATA_SUFFIX):
+                array_name = suffix[: -len(POINT_DATA_SUFFIX)]
+                frame_type = f"Point Data: {array_name}"
+            elif suffix.endswith(CELL_DATA_SUFFIX):
+                array_name = suffix[: -len(CELL_DATA_SUFFIX)]
+                frame_type = f"Cell Data: {array_name}"
+            elif suffix.endswith(FIELD_DATA_SUFFIX):
+                array_name = suffix[: -len(FIELD_DATA_SUFFIX)]
+                frame_type = f"Field Data: {array_name}"
+            elif suffix == POINTS_KEY:
+                frame_type = "Points"
+            elif suffix == CELL_TYPES_KEY:
+                frame_type = "Cell Types"
+            elif suffix.endswith(OFFSET_SUFFIX):
+                array_name = suffix[: -len(OFFSET_SUFFIX)]
+                frame_type = f"Offsets: {array_name}"
+            elif suffix.endswith(CONNECTIVITY_SUFFIX):
+                array_name = suffix[: -len(CONNECTIVITY_SUFFIX)]
+                frame_type = f"Connectivity: {array_name}"
+            elif suffix.endswith((RGRID_X_SUFFIX, RGRID_Y_SUFFIX, RGRID_Z_SUFFIX)):
+                coord = suffix[-8]  # x, y, or z
+                frame_type = f"RGrid {coord.upper()} Coords"
+            else:
+                frame_type = suffix
+
+            ratio = comp_size / decomp_size if decomp_size > 0 else 0
+            frame_data.append((ds_id, frame_type, comp_size, decomp_size, ratio))
+
+        # Print header
+        print(f"{'Dataset ID':<16} {'Frame Type':<24} {'Compressed':<12} {'Decompressed':<12} {'Ratio':<8}")
+        print("-" * 80)
+
+        # Group by dataset ID for MultiBlock organization
+        if isinstance(self._ds_metadata, MultiBlockMetadata):
+            self._print_multiblock_compression(frame_data, self._ds_metadata)
+        else:
+            # Single dataset - print all frames
+            total_comp = 0
+            total_decomp = 0
+            for ds_id, frame_type, comp_size, decomp_size, ratio in frame_data:
+                total_comp += comp_size
+                total_decomp += decomp_size
+                print(
+                    f"{ds_id:<16} {frame_type[:24]:<25} {self._format_bytes(comp_size):<12} "
+                    f"{self._format_bytes(decomp_size):<12} {ratio:.3f}"
+                )
+
+            print("-" * 80)
+            overall_ratio = total_comp / total_decomp if total_decomp > 0 else 0
+            print(
+                f"{'TOTAL':<16} {'':<25} {self._format_bytes(total_comp):<12} "
+                f"{self._format_bytes(total_decomp):<12} {overall_ratio:.3f}"
+            )
+
+    def _print_multiblock_compression(self, frame_data: list, metadata: MultiBlockMetadata, indent: int = 0) -> None:
+        """Print compression info for a MultiBlock with hierarchy."""
+        prefix = "  " * indent
+        ds_frames = [f for f in frame_data if f[0] == metadata.uid]
+
+        if ds_frames:
+            total_comp = sum(f[2] for f in ds_frames)
+            total_decomp = sum(f[3] for f in ds_frames)
+            ratio = total_comp / total_decomp if total_decomp > 0 else 0
+
+            print(
+                f"{prefix}{metadata.uid:<16} {'MultiBlock Summary':<25} "
+                f"{self._format_bytes(total_comp):<12} {self._format_bytes(total_decomp):<12} {ratio:.3f}"
+            )
+
+            for _, frame_type, comp_size, decomp_size, ratio in ds_frames:
+                if "Metadata" in frame_type:
+                    print(
+                        f"{prefix}  {'':<14} {frame_type:<25} "
+                        f"{self._format_bytes(comp_size):<12} {self._format_bytes(decomp_size):<12} {ratio:.3f}"
+                    )
+
+        # Recursively print children if they have metadata
+        if hasattr(metadata, "children_ds") and metadata.children_ds:
+            for child_uid, child_meta in metadata.children_ds.items():
+                if isinstance(child_meta, MultiBlockMetadata):
+                    self._print_multiblock_compression(frame_data, child_meta, indent + 1)
+                elif isinstance(child_meta, DataSetMetadata):
+                    child_frames = [f for f in frame_data if f[0] == child_uid]
+                    if child_frames:
+                        child_prefix = "  " * (indent + 1)
+                        total_comp = sum(f[2] for f in child_frames)
+                        total_decomp = sum(f[3] for f in child_frames)
+                        ratio = total_comp / total_decomp if total_decomp > 0 else 0
+
+                        print(
+                            f"{child_prefix}{child_uid:<16} {child_meta.ds_type + ' Summary':<25} "
+                            f"{self._format_bytes(total_comp):<12} {self._format_bytes(total_decomp):<12} {ratio:.3f}"
+                        )
+
+                        for _, frame_type, comp_size, decomp_size, ratio in child_frames:
+                            if "Metadata" not in frame_type:
+                                print(
+                                    f"{child_prefix}  {'':<14} {frame_type:<25} "
+                                    f"{self._format_bytes(comp_size):<12} {self._format_bytes(decomp_size):<12} {ratio:.3f}"
+                                )
+
+    def _format_bytes(self, size: int) -> str:
+        """Format byte size in human readable format."""
+        for unit in ["B", "KB", "MB", "GB"]:
+            if size < 1024:
+                return f"{size:.1f}{unit}"
+            size /= 1024
+        return f"{size:.1f}TB"

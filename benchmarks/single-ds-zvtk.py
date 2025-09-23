@@ -46,13 +46,20 @@ nbytes = (
 print(f"Size in memory: {nbytes / 1024**2:.2f} MB")
 print()
 
+###############################################################################
+tmp_path = Path("/tmp/ds.zvtk")
+zvtk.write(ugrid, tmp_path)
+
+reader = zvtk.Reader(tmp_path)
+reader.show_frame_compression()
+1 / 0
+
 
 ###############################################################################
 # Compare compression levels
 # Negative levels are fast and low compression, 3 is default, and 22 is max
 
 # Compare compression levels (write + read perf)
-tmp_path = Path("/tmp/ds.zvtk")
 write_times = []
 read_times = []
 file_sizes = []
