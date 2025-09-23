@@ -391,44 +391,28 @@ compression algorithms, and the XML format adds significant overhead.</p>
 <p>To demonstrate this, the following example writes out a single file
 without compression. This example requires <code class="docutils literal notranslate"><span class="pre">pyvista&gt;=0.47.0</span></code> for the
 <code class="docutils literal notranslate"><span class="pre">compression</span></code> parameter.</p>
-<details><summary><p>Dataset Creation</p>
-</summary><div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
-<span class="n">tmp_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/tmp/zvtk_test&quot;</span><span class="p">)</span>
-<span class="n">tmp_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-<span class="n">rng</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
-<span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-
-<span class="c1"># Generate a single unstructured grid</span>
-<span class="n">n_dim</span> <span class="o">=</span> <span class="mi">200</span>
-<span class="n">imdata</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">ImageData</span><span class="p">(</span><span class="n">dimensions</span><span class="o">=</span><span class="p">(</span><span class="n">n_dim</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">,</span> <span class="n">n_dim</span><span class="p">))</span>
-<span class="n">ugrid</span> <span class="o">=</span> <span class="n">imdata</span><span class="o">.</span><span class="n">to_tetrahedra</span><span class="p">()</span>
-
-<span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;pdata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">n_points</span><span class="p">)</span>
-<span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;cdata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rng</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">n_cells</span><span class="p">)</span>
-
-<span class="n">nbytes</span> <span class="o">=</span> <span class="p">(</span>
-    <span class="n">ugrid</span><span class="o">.</span><span class="n">points</span><span class="o">.</span><span class="n">nbytes</span>
-    <span class="o">+</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">cell_connectivity</span><span class="o">.</span><span class="n">nbytes</span>
-    <span class="o">+</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">nbytes</span>
-    <span class="o">+</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">celltypes</span><span class="o">.</span><span class="n">nbytes</span>
-    <span class="o">+</span> <span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;pdata&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nbytes</span>
-    <span class="o">+</span> <span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;cdata&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nbytes</span>
-<span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Size in memory: </span><span class="si">{</span><span class="n">nbytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">()</span>
-</pre></div>
-</div>
-</details><div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Size in memory: </span><span class="si">{</span><span class="n">nbytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ugrid</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">ImageData</span><span class="p">(</span><span class="n">dimensions</span><span class="o">=</span><span class="p">(</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">))</span><span class="o">.</span><span class="n">to_tetrahedra</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;pdata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">n_points</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;cdata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">random</span><span class="p">(</span><span class="n">ugrid</span><span class="o">.</span><span class="n">n_cells</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">nbytes</span> <span class="o">=</span> <span class="p">(</span>
+<span class="gp">... </span>    <span class="n">ugrid</span><span class="o">.</span><span class="n">points</span><span class="o">.</span><span class="n">nbytes</span>
+<span class="gp">... </span>    <span class="o">+</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">cell_connectivity</span><span class="o">.</span><span class="n">nbytes</span>
+<span class="gp">... </span>    <span class="o">+</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">offset</span><span class="o">.</span><span class="n">nbytes</span>
+<span class="gp">... </span>    <span class="o">+</span> <span class="n">ugrid</span><span class="o">.</span><span class="n">celltypes</span><span class="o">.</span><span class="n">nbytes</span>
+<span class="gp">... </span>    <span class="o">+</span> <span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;pdata&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nbytes</span>
+<span class="gp">... </span>    <span class="o">+</span> <span class="n">ugrid</span><span class="p">[</span><span class="s2">&quot;cdata&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">nbytes</span>
+<span class="gp">... </span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Size in memory: </span><span class="si">{</span><span class="n">nbytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
 
 <span class="go">Size in memory: 1993.89 MB</span>
 </pre></div>
 </div>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="go">Save using VTK XML format</span>
 
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tmp_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.vtu&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tstart</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ugrid</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">tmp_path</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
