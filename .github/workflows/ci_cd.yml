@@ -18,38 +18,39 @@ env:
   SHELLOPTS: "errexit:pipefail"
 
 jobs:
-  # doc:
-  #   name: Build Documentation
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - uses: actions/checkout@v5
+  doc:
+    name: Build Documentation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
 
-  #     - name: Set up Python 3.11
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.11"
-  #         cache: "pip"
-  #         cache-dependency-path: pyproject.toml
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: pyproject.toml
 
-  #     - name: Install pytest-pyvista with test dependencies
-  #       run: pip install .[docs] 'pyvista>=0.37'
+      - name: Install uv
+        run: pip install uv
 
-  #     - uses: awalsh128/cache-apt-pkgs-action@v1.5.3
-  #       with:
-  #         packages: libosmesa6-dev libgl1-mesa-dev python3-tk pandoc git-restore-mtime
-  #         version: 3.0
+      - name: Install pytest-pyvista with test dependencies
+        run: uv pip install .[docs]
 
-  #     - name: Build Documentation
-  #       run: |
-  #         make -C doc html
-  #         touch doc/_build/html/.nojekyll
+      - name: Setup headless display
+        uses: pyvista/setup-headless-display-action@v4.2
 
-  #     - name: Deploy on release
-  #       if: startsWith(github.ref, 'refs/tags/v')
-  #       uses: peaceiris/actions-gh-pages@v4
-  #       with:
-  #         github_token: ${{ secrets.GITHUB_TOKEN }}
-  #         publish_dir: doc/_build/html/
+      - name: Build Documentation
+        run: |
+          make -C doc html
+          touch doc/_build/html/.nojekyll
+
+      - name: Deploy on release
+        # if: startsWith(github.ref, 'refs/tags/v')
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: doc/_build/html/
 
   unit_testing:
     name: Unit Testing
@@ -71,12 +72,6 @@ jobs:
           cache: "pip"
           cache-dependency-path: pyproject.toml
 
-      - name: Verify wheel
-        if: matrix.python-version == '3.13'
-        run: |
-          pip install --upgrade pip build twine
-          python -m build && python -m twine check dist/*
-
       - name: Install uv
         run: pip install uv
 
@@ -90,40 +85,43 @@ jobs:
       - name: Unit Testing
         run: pytest -vv
 
-  # release:
-  #   name: Release
-  #   if: |
-  #     github.event_name == 'push' &&
-  #     contains(github.ref, 'refs/tags')
-  #   needs:
-  #     - doc
-  #     - Linux
-  #     - downstream
-  #   runs-on: ubuntu-24.04
-  #   steps:
-  #     - name: Download distribution artifacts
-  #       uses: actions/download-artifact@v5
-  #       with:
-  #         name: dist-artifacts
-  #         path: dist/
+      - name: Build and verify wheels
+        run: |
+          uv pip install build twine
+          python -m build
+          python -m twine check dist/*
 
-  #     - name: Set up Python
-  #       uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.13"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pyminiply-sdist
+          path: dist/*
 
-  #     - name: Publish to PyPI
-  #       env:
-  #         TWINE_USERNAME: __token__
-  #         TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-  #       run: |
-  #         python -m pip install twine
-  #         python -m twine upload --skip-existing ./**/*.whl
-  #         python -m twine upload --skip-existing ./**/*.tar.gz
+  # Publish to PyPI using trusted publishing
+  release:
+    name: Release
+    # if: github.event_name == 'push' && contains(github.ref, 'refs/tags')
+    needs: [doc, unit_testing]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/zvtk
+    permissions:
+      id-token: write # this permission is mandatory for trusted publishing
+    steps:
+      - uses: actions/download-artifact@v5
 
-  #     - name: Publish to GitHub
-  #       uses: softprops/action-gh-release@v2
-  #       with:
-  #         files: |
-  #           ./**/*.whl
-  #           ./**/*.tar.gz
+      - name: Flatten directory structure
+        run: |
+          mkdir -p dist/
+          find . -name '*.whl' -exec mv {} dist/ \;
+          find . -name '*.tar.gz' -exec mv {} dist/ \;
+
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2.3.3
+        with:
+          generate_release_notes: true
+          files: |
+            ./**/*.whl
