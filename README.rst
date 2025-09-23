@@ -67,57 +67,21 @@ To demonstrate this, the following example writes out a single file
 without compression. This example requires ``pyvista>=0.47.0`` for the
 ``compression`` parameter.
 
-.. raw:: html
-
-   <details>
-
-.. raw:: html
-
-   <summary>
-
-Dataset Creation
-
-.. raw:: html
-
-   </summary>
-
-.. code:: py
-
-   import time
-   from pathlib import Path
-   import numpy as np
-   import pyvista as pv
-   tmp_dir = Path("/tmp/zvtk_test")
-   tmp_dir.mkdir(exist_ok=True)
-
-   rng = np.random.default_rng(42)
-   results = []
-
-   # Generate a single unstructured grid
-   n_dim = 200
-   imdata = pv.ImageData(dimensions=(n_dim, n_dim, n_dim))
-   ugrid = imdata.to_tetrahedra()
-
-   ugrid["pdata"] = rng.random(ugrid.n_points)
-   ugrid["cdata"] = rng.random(ugrid.n_cells)
-
-   nbytes = (
-       ugrid.points.nbytes
-       + ugrid.cell_connectivity.nbytes
-       + ugrid.offset.nbytes
-       + ugrid.celltypes.nbytes
-       + ugrid["pdata"].nbytes
-       + ugrid["cdata"].nbytes
-   )
-   print(f"Size in memory: {nbytes / 1024**2:.2f} MB")
-   print()
-
-.. raw:: html
-
-   </details>
-
 .. code:: pycon
 
+   >>> import numpy as np
+   >>> import pyvista as pv
+   >>> ugrid = pv.ImageData(dimensions=(200, 200, 200)).to_tetrahedra()
+   >>> ugrid["pdata"] = np.random.random(ugrid.n_points)
+   >>> ugrid["cdata"] = np.random.random(ugrid.n_cells)
+   >>> nbytes = (
+   ...     ugrid.points.nbytes
+   ...     + ugrid.cell_connectivity.nbytes
+   ...     + ugrid.offset.nbytes
+   ...     + ugrid.celltypes.nbytes
+   ...     + ugrid["pdata"].nbytes
+   ...     + ugrid["cdata"].nbytes
+   ... )
    >>> print(f"Size in memory: {nbytes / 1024**2:.2f} MB")
 
    Size in memory: 1993.89 MB
@@ -126,6 +90,8 @@ Dataset Creation
 
    Save using VTK XML format
 
+   >>> from pathlib import Path
+   >>> import time
    >>> tmp_path = Path("/tmp/ds.vtu")
    >>> tstart = time.time()
    >>> ugrid.save(tmp_path, compression=None)
