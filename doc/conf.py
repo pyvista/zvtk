@@ -12,16 +12,18 @@ import zvtk
 # -- PyVista gallery configuration -------------------------------------------
 # Manage errors
 pyvista.set_error_output_file("errors.txt")
+
 # Ensure that offscreen rendering is used for docs generation
 pyvista.OFF_SCREEN = True  # Not necessary - simply an insurance policy
+
 # Preferred plotting style for documentation
 pyvista.set_plot_theme("document")
 pyvista.global_theme.window_size = [1024, 768]
+
 # Save figures in specified directory
 pth = Path("./images/")
 pyvista.FIGURE_PATH = str(pth)
 pth.mkdir(exist_ok=True)
-
 pyvista.BUILDING_GALLERY = True
 
 # -- Project information -----------------------------------------------------
