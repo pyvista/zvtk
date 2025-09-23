@@ -21,5 +21,5 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
-	rm -rf examples/
+	rm -rf auto_examples/
 	find . -type d -name "_autosummary" -exec rm -rf {} +

@@ -89,10 +89,7 @@ copybutton_prompt_is_regexp = True
 
 # -- Options for HTML output -------------------------------------------------
 
-# The theme to use for HTML and HTML Help pages.  See the documentation for
-# a list of builtin themes.
-#
-html_theme = "pydata_sphinx_theme"
+html_theme = "sphinx_book_theme"
 html_context = {
     # Enable the "Edit in GitHub link within the header of each page.
     "display_github": True,

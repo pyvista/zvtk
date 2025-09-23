@@ -1,3 +1,3 @@
 ### `zvtk` Benchmarks
 
-This directory contains benchmarks for `zvtk`.
+This directory contains benchmark scripts for `zvtk`.
