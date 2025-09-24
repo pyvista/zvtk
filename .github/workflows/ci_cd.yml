@@ -46,7 +46,7 @@ jobs:
           touch doc/_build/html/.nojekyll
 
       - name: Deploy on release
-        # if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -94,7 +94,7 @@ jobs:
   # Publish to PyPI using trusted publishing
   release:
     name: Release
-    # if: github.event_name == 'push' && contains(github.ref, 'refs/tags')
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags')
     needs: [doc, unit_testing]
     runs-on: ubuntu-latest
     environment:
