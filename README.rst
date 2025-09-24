@@ -1,6 +1,16 @@
 zvtk
 ====
 
+|pypi| |ci| |mit|
+
+.. |pypi| image:: https://img.shields.io/pypi/v/zvtk.svg?logo=python&logoColor=white
+   :target: https://pypi.org/project/zvtk/
+.. |ci| image:: https://github.com/pyvista/zvtk/actions/workflows/ci_cd.yml/badge.svg
+   :target: https://github.com/pyvista/zvtk/actions/workflows/ci_cd.yml
+.. |mit| image:: https://img.shields.io/badge/License-MIT-yellow.svg
+   :target: https://opensource.org/license/mit/
+
+
 Seamlessly compress VTK datasets using `Zstandard <https://github.com/facebook/zstd>`_.
 
 **Read in VTK datasets 37x faster, write 14x faster, all while using 28% less
