@@ -25,6 +25,7 @@ import pyvista as pv
 from pyvista.core.composite import MultiBlock
 from pyvista.core.grid import ImageData
 from pyvista.core.grid import RectilinearGrid
+from pyvista.core.pointset import ExplicitStructuredGrid
 from pyvista.core.pointset import PointSet
 from pyvista.core.pointset import PolyData
 from pyvista.core.pointset import StructuredGrid
@@ -80,6 +81,7 @@ LINES = "lines"
 STRIPS = "strips"
 VERTS = "verts"
 
+UID_N_CHAR = 16
 EMPTY_DS = "EMPTY_DS________"  # must be 16 char to align with UID
 
 VTK_UNSIGNED_CHAR = 3
@@ -267,6 +269,16 @@ class DataSetMetadata:
         return np.frombuffer(meta_bytes, dtype=np.uint8)
 
 
+def _format_bytes(size: float) -> str:
+    """Return a byte size in a human readable format."""
+    kb = 1024
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if size < kb:
+            return f"{size:.1f}{unit}"
+        size = size / kb
+    return f"{size:.1f}TB"
+
+
 def _set_n_threads(n_threads: int | None, n_bytes: int, max_manual_threads: int = 8) -> int:
     # Maximum number of set threads before relying on zstandard to
     # automatically set them
@@ -332,8 +344,11 @@ def _add_arrays_polydata(ds: PolyData, arrays: dict[str, NDArray[Any]], *, force
     _add_cell_array(ds_id, arrays, VERTS, ds.GetVerts(), force_int32=force_int32)
 
 
-def _add_arrays_ugrid(ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], *, force_int32: bool = True) -> None:
-    ds_id = _make_ds_id(ds)
+def _add_arrays_ugrid(
+    ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], ds_id: str | None = None, *, force_int32: bool = True
+) -> None:
+    if ds_id is None:
+        ds_id = _make_ds_id(ds)
     arrays[f"{ds_id}{POINTS_KEY}"] = ds.points
     arrays[f"{ds_id}{CELL_TYPES_KEY}"] = ds.celltypes
 
@@ -352,6 +367,14 @@ def _add_arrays_ugrid(ds: UnstructuredGrid, arrays: dict[str, NDArray[Any]], *, 
         ds.GetPolyhedronFaceLocations(),
         force_int32=force_int32,
     )
+
+
+def _add_arrays_esgrid(
+    ds: ExplicitStructuredGrid, arrays: dict[str, NDArray[Any]], *, force_int32: bool = True
+) -> None:
+    ds_id = _make_ds_id(ds)
+    ugrid = ds.cast_to_unstructured_grid()
+    _add_arrays_ugrid(ugrid, arrays, ds_id, force_int32=force_int32)
 
 
 def _add_arrays_sgrid(ds: StructuredGrid, arrays: dict[str, NDArray[Any]]) -> None:
@@ -381,6 +404,7 @@ def write(  # noqa: PLR0913
     * :class:`pyvista.StructuredGrid`
     * :class:`pyvista.UnstructuredGrid`
     * :class:`pyvista.MultiBlock`
+    * :class:`pyvista.ExplicitStructuredGrid`
 
     All file types should end in ``.zvtk``, borrowing both from the legacy
     VTK extension ``.vtk`` and the ``.zst`` file types.
@@ -432,7 +456,7 @@ def _pack_array_metadata(name: str, arr: np.ndarray) -> bytes:
         struct.pack("<I", arr.ndim),
     ]
     parts.extend(struct.pack("<Q", dim) for dim in arr.shape)
-    parts.append(arr.dtype.str.encode("utf-8").ljust(16, b" "))
+    parts.append(arr.dtype.str.encode("utf-8").ljust(UID_N_CHAR, b" "))
     return b"".join(parts)
 
 
@@ -466,6 +490,8 @@ class Writer:
             _add_arrays_polydata(ds, self._arrays, force_int32=force_int32)
         elif isinstance(ds, UnstructuredGrid):
             _add_arrays_ugrid(ds, self._arrays, force_int32=force_int32)
+        elif isinstance(ds, ExplicitStructuredGrid):
+            _add_arrays_esgrid(ds, self._arrays, force_int32=force_int32)
         elif isinstance(ds, ImageData):
             pass
         elif isinstance(ds, StructuredGrid):
@@ -590,8 +616,8 @@ def _reconstruct_array(meta_segment: BufferSegment, arr_segment: BufferSegment) 
     shape = tuple(struct.unpack_from(f"<{ndim}Q", meta_buf, offset))
     offset += 8 * ndim
 
-    dtype_str = meta_buf[offset : offset + 16].tobytes().strip().decode("utf-8")
-    offset += 16
+    dtype_str = meta_buf[offset : offset + UID_N_CHAR].tobytes().strip().decode("utf-8")
+    offset += UID_N_CHAR
 
     # finally construct the array using the array segment
     data_buf = memoryview(arr_segment)
@@ -620,11 +646,11 @@ def _add_data(ds_id: str, ds: DataSet, segment_dict: dict[str, Any]) -> None:
 
         # uid size is 16
         if key.endswith(POINT_DATA_SUFFIX):
-            point_data.set_array(array, key[16 : -len(POINT_DATA_SUFFIX)])
+            point_data.set_array(array, key[UID_N_CHAR : -len(POINT_DATA_SUFFIX)])
         if key.endswith(CELL_DATA_SUFFIX):
-            cell_data.set_array(array, key[16 : -len(CELL_DATA_SUFFIX)])
+            cell_data.set_array(array, key[UID_N_CHAR : -len(CELL_DATA_SUFFIX)])
         if key.endswith(FIELD_DATA_SUFFIX):
-            field_data.set_array(array, key[16 : -len(FIELD_DATA_SUFFIX)])
+            field_data.set_array(array, key[UID_N_CHAR : -len(FIELD_DATA_SUFFIX)])
 
 
 def _segments_to_ugrid(ds_id: str, segments: dict[str, Any]) -> UnstructuredGrid:
@@ -650,6 +676,10 @@ def _segments_to_ugrid(ds_id: str, segments: dict[str, Any]) -> UnstructuredGrid
         ugrid.SetCells(celltypes_vtk, cells)
 
     return ugrid
+
+
+def _segments_to_esgrid(ds_id: str, segments: dict[str, Any]) -> ExplicitStructuredGrid:
+    return _segments_to_ugrid(ds_id, segments).cast_to_explicit_structured_grid()
 
 
 def _segments_to_sgrid(ds_id: str, segments: dict[str, Any], metadata: DataSetMetadata) -> StructuredGrid:
@@ -756,6 +786,15 @@ def read(filename: Path | str, n_threads: int | None = None) -> DataSet:
         Number of threads to use. If omitted, the best number of threads to
         decompress the file will be used.
 
+    Returns
+    -------
+    pyvista.DataSet
+
+    Examples
+    --------
+    >>> import zvtk
+    >>> ds = zvtk.read("dataset.zvtk")
+
     """
     return Reader(filename).read(n_threads=n_threads)
 
@@ -835,15 +874,54 @@ class Reader:
 
     Use this class in lieu of :func:`zvtk.read` to fine-tune reading in
     compressed files. With this you can:
-    - Inspect the dataset before reading it.
-    - Control which arrays to read in.
-    - For files containing a :class:`pyvista.MultiBlock`, select which blocks
+
+    * Inspect the dataset before reading it.
+    * Control which arrays to read in.
+    * For files containing a :class:`pyvista.MultiBlock`, select which blocks
       to read in.
 
     Parameters
     ----------
     filename : pathlib.Path | str
         Path to the file. Must end in ``.zvtk``.
+
+    Examples
+    --------
+    First write out an example dataset.
+
+    >>> import pyvista as pv
+    >>> import zvtk
+    >>> ds = pv.Sphere()
+    >>> zvtk.write(ds, "sphere.zvtk")
+
+    Create a reader.
+
+    >>> reader = zvtk.Reader("sphere.zvtk")
+    >>> reader
+    zvtk.Decompressor (0x7f1ed1496c00)
+      File:               sphere.zvtk
+      File Version:       0
+      Compression:        zstandard
+      Compression Level:  3
+      Dataset Type:       PolyData
+      N Points:           842 (<class 'numpy.float32'>)
+      N Cells:            1680
+      Point arrays:
+          Normals                  float32    (842, 3)
+
+    Disable reading in point arrays and read the dataset.
+
+    >>> reader.selected_point_arrays = set()
+    >>> ds_in = reader.read()
+    >>> ds_in
+    PolyData (0x7f1ece066ce0)
+      N Cells:    1680
+      N Points:   842
+      N Strips:   0
+      X Bounds:   -4.993e-01, 4.993e-01
+      Y Bounds:   -4.965e-01, 4.965e-01
+      Z Bounds:   -5.000e-01, 5.000e-01
+      N Arrays:   0
 
     """
 
@@ -867,14 +945,25 @@ class Reader:
                 msg = "Bad number of frames. File may be corrupted."
                 raise RuntimeError(msg)
 
-            f.seek(-(8 + num_frames * 16), 2)
-            meta_data = f.read(num_frames * 16)
-            frame_meta = [struct.unpack("<QQ", meta_data[i * 16 : (i + 1) * 16]) for i in range(num_frames)]
+            f.seek(-(8 + num_frames * UID_N_CHAR), 2)
+            meta_data = f.read(num_frames * UID_N_CHAR)
+            frame_meta = [
+                struct.unpack("<QQ", meta_data[i * UID_N_CHAR : (i + 1) * UID_N_CHAR]) for i in range(num_frames)
+            ]
             frame_starts = [0] + [end for end, _ in frame_meta[:-1]]
             frame_ends = [end for end, _ in frame_meta]
             sizes = [dsz for _, dsz in frame_meta]
             self._decompressed_sizes = struct.pack(f"={len(sizes)}Q", *sizes)
             self._mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+
+        # store compressed frame sizes
+        sizes = []
+        for i in range(len(frame_ends)):
+            if i == 0:
+                sizes.append(frame_ends[0])
+            else:
+                sizes.append(frame_ends[i] - frame_ends[i - 1])
+        self._compressed_sizes = np.array(sizes, dtype=np.uint64)
 
         # prepare the metadata frame and decompress it
         segments_bytes = b"".join(
@@ -961,7 +1050,7 @@ class Reader:
         # read in only the last segment
         segments = dctx.multi_decompress_to_buffer(
             [self._frames[-2], self._frames[-1]],
-            decompressed_sizes=self._decompressed_sizes[-16:],
+            decompressed_sizes=self._decompressed_sizes[-UID_N_CHAR:],
             threads=0,  # tiny
         )
         name, arr = _reconstruct_array(*segments)
@@ -981,6 +1070,7 @@ class Reader:
 
         return metadata
 
+    # @profile
     def _read_ds(self, ds_id: str, n_threads: int | None = None) -> DataSet:
         """Read a single dataset."""
         # map frame indices to names using metadata
@@ -1000,6 +1090,10 @@ class Reader:
         selected_frames = []
         sizes = []
         selected_frame_names = set(frame_names) - excluded
+
+        # downselect to the matching dataset id
+        selected_frame_names = {f for f in selected_frame_names if f.startswith(ds_id)}
+
         n_frames = len(frame_names)
         if len(selected_frame_names) == n_frames:
             # Decompress with multi-threaded buffer API
@@ -1070,7 +1164,7 @@ class Reader:
                 mb_meta = MultiBlockMetadata.from_array(segment)
                 mblock_meta[mb_meta.uid] = mb_meta
             elif key.endswith(DS_METADATA_KEY):
-                uid = key[:16]
+                uid = key[:UID_N_CHAR]
                 ds_meta = DataSetMetadata.from_array(segment)
                 dataset_meta[uid] = ds_meta
 
@@ -1098,7 +1192,34 @@ class Reader:
         return _DataSetReader(mblock_meta[root_uid], self)
 
     def read(self, n_threads: int | None = None) -> DataSet:  # noqa: C901
-        """Read in the dataset from the zvtk file."""
+        """
+        Read in the dataset from the zvtk file.
+
+        Parameters
+        ----------
+        n_threads : int, optional
+            Number of threads to use when reading. A value of ``-1`` uses all
+            available cores and ``0`` disables multi-threading.
+
+        Examples
+        --------
+        >>> import pyvista as pv
+        >>> import zvtk
+        >>> ds = pv.Sphere()
+        >>> zvtk.write(ds, "sphere.zvtk")
+        >>> reader = zvtk.Reader("sphere.zvtk")
+        >>> ds_in = reader.read()
+        >>> ds_in
+        PolyData (0x7f1eca564520)
+          N Cells:    1680
+          N Points:   842
+          N Strips:   0
+          X Bounds:   -4.993e-01, 4.993e-01
+          Y Bounds:   -4.965e-01, 4.965e-01
+          Z Bounds:   -5.000e-01, 5.000e-01
+          N Arrays:   1
+
+        """
         if not isinstance(self._ds_metadata, MultiBlockMetadata):
             return self._read_ds(self._ds_metadata.uid, n_threads)
 
@@ -1119,8 +1240,8 @@ class Reader:
             if key.endswith(MULTIBLOCK_METADATA_KEY):
                 mblock_meta.append(MultiBlockMetadata.from_array(segment))
             elif key.endswith(DS_METADATA_KEY):
-                uid = key[:16]
-                dataset_map[uid] = self._segments_to_ds(key[:16], segments)
+                uid = key[:UID_N_CHAR]
+                dataset_map[uid] = self._segments_to_ds(key[:UID_N_CHAR], segments)
 
         # Build empty MultiBlock objects for every multiblock metadata entry.
         multiblock_map: dict[str, MultiBlock] = {m.uid: MultiBlock() for m in mblock_meta}
@@ -1166,6 +1287,8 @@ class Reader:
             ds = _segments_to_rgrid(ds_id, segments)
         elif ds_type == "StructuredGrid":
             ds = _segments_to_sgrid(ds_id, segments, ds_metadata)
+        elif ds_type == "ExplicitStructuredGrid":
+            ds = _segments_to_esgrid(ds_id, segments)
         else:  # pragma: no cover
             msg = f"zvtk does not support DataSet type `{ds_type}` for decompression"
             raise RuntimeError(msg)
@@ -1176,14 +1299,64 @@ class Reader:
 
     @property
     def available_point_arrays(self) -> set[str]:
-        """Return a set of all point array names available in the dataset."""
+        """
+        Return a set of all point array names available in the dataset.
+
+        Returns
+        -------
+        set[str]
+            Names of all point arrays available in the dataset.
+
+        Examples
+        --------
+        First write out an example dataset.
+
+        >>> import pyvista as pv
+        >>> import numpy as np
+        >>> import zvtk
+        >>> ds = pv.Sphere()
+        >>> ds.point_data["pdata"] = np.arange(ds.n_points)
+        >>> zvtk.write(ds, "sphere.zvtk")
+
+        Create a reader and list available point arrays.
+
+        >>> reader = zvtk.Reader("sphere.zvtk")
+        >>> reader.available_point_arrays
+        {"Normals", "pdata"}
+
+        """
         if isinstance(self._ds_metadata, MultiBlockMetadata):
             return set()
         return set(self._ds_metadata.point_data_keys)
 
     @property
     def available_cell_arrays(self) -> set[str]:
-        """Return a set of all cell array names available in the dataset."""
+        """
+        Return a set of all cell array names available in the dataset.
+
+        Returns
+        -------
+        set[str]
+            Names of all cell arrays available in the dataset.
+
+        Examples
+        --------
+        First write out an example dataset.
+
+        >>> import pyvista as pv
+        >>> import numpy as np
+        >>> import zvtk
+        >>> ds = pv.Sphere()
+        >>> ds.point_data["pdata"] = np.arange(ds.n_points)
+        >>> zvtk.write(ds, "sphere.zvtk")
+
+        Create a reader and list available point arrays.
+
+        >>> reader = zvtk.Reader("sphere.zvtk")
+        >>> reader.available_point_arrays
+        {"Normals", "pdata"}
+
+        """
         if isinstance(self._ds_metadata, MultiBlockMetadata):
             return set()
         return set(self._ds_metadata.cell_data_keys)
@@ -1344,3 +1517,138 @@ class Reader:
                 header.extend(lines)
 
         return "\n".join(header)
+
+    def show_frame_compression(self) -> str:  # noqa: C901, PLR0912
+        """
+        Return a table showing compression statistics for each frame in the dataset.
+
+        For MultiBlock datasets, shows a hierarchical view with compression stats
+        for each block. For regular datasets, shows stats for each array.
+
+        Examples
+        --------
+        Download the aero bracket dataset.
+
+        >>> import pyvista as pv
+        >>> from pyvista import examples
+        >>> import zvtk
+        >>> ds = examples.download_aero_bracket()
+        >>> ds
+        UnstructuredGrid (0x7fd751589360)
+          N Cells:    117292
+          N Points:   187037
+          X Bounds:   -6.858e-03, 1.118e-01
+          Y Bounds:   -1.237e-02, 6.634e-02
+          Z Bounds:   -1.638e-02, 1.638e-02
+          N Arrays:   3
+
+        Compress it and then show the compressed frame sizes through the reader.
+
+        >>> zvtk.write(ds, "bracket.zvtk")
+        >>> reader = zvtk.Reader("bracket.zvtk")
+        >>> print(reader.show_frame_compression())
+        Dataset ID       Frame Type                      Compressed   Decompressed Ratio
+        --------------------------------------------------------------------------------
+        00007fd751589360 Points                          1.9MB        2.1MB        0.877
+        00007fd751589360 Cell Types                      22.0B        114.5KB      0.000
+        00007fd751589360 Offsets: cells                  330.5KB      458.2KB      0.721
+        00007fd751589360 Connectivity: cells             2.2MB        4.5MB        0.499
+        00007fd751589360 Point Data: displacement        2.0MB        2.1MB        0.935
+        00007fd751589360 Point Data: total nonlinear st  4.0MB        4.3MB        0.938
+        00007fd751589360 Point Data: von Mises stress    650.7KB      730.6KB      0.891
+        --------------------------------------------------------------------------------
+        TOTAL                                            11.1MB       14.3MB       0.775
+
+        Note how the compression ratio can be marginally improved by increasing
+        the compression level.
+
+        >>> zvtk.write(ds, "bracket.zvtk", level=22)
+        >>> reader = zvtk.Reader("bracket.zvtk")
+        Dataset ID       Frame Type                      Compressed   Decompressed Ratio
+        --------------------------------------------------------------------------------
+        00007fd751589360 Points                          1.8MB        2.1MB        0.863
+        00007fd751589360 Cell Types                      21.0B        114.5KB      0.000
+        00007fd751589360 Offsets: cells                  56.1KB       458.2KB      0.123
+        00007fd751589360 Connectivity: cells             1.6MB        4.5MB        0.358
+        00007fd751589360 Point Data: displacement        2.0MB        2.1MB        0.937
+        00007fd751589360 Point Data: total nonlinear st  4.0MB        4.3MB        0.940
+        00007fd751589360 Point Data: von Mises stress    651.7KB      730.6KB      0.892
+        --------------------------------------------------------------------------------
+        TOTAL                                            10.2MB       14.3MB       0.711
+
+        """
+        lines: list[str] = []
+        frame_names = self._metadata.frame_names
+
+        # Frame sizes are [array header, array, ..., metadata frame]
+        # skip headers and metadata frame
+        d_sizes = self.decompressed_sizes[1:-1:2]
+        c_sizes = self._compressed_sizes[1:-1:2]
+
+        # Group frames by dataset ID for better organization
+        frame_data = []
+        for name, comp_size, decomp_size in zip(frame_names, c_sizes, d_sizes):
+            # Extract dataset ID and frame type
+            if len(name) >= UID_N_CHAR:
+                ds_id = name[:UID_N_CHAR]
+                suffix = name[UID_N_CHAR:]
+            else:
+                continue
+
+            # always skip metadata
+            if suffix.endswith("metadata"):
+                continue
+
+            # Determine frame type and human-readable name
+            if suffix.endswith(POINT_DATA_SUFFIX):
+                array_name = suffix[: -len(POINT_DATA_SUFFIX)]
+                frame_type = f"Point Data: {array_name}"
+            elif suffix.endswith(CELL_DATA_SUFFIX):
+                array_name = suffix[: -len(CELL_DATA_SUFFIX)]
+                frame_type = f"Cell Data: {array_name}"
+            elif suffix.endswith(FIELD_DATA_SUFFIX):
+                array_name = suffix[: -len(FIELD_DATA_SUFFIX)]
+                frame_type = f"Field Data: {array_name}"
+            elif suffix == POINTS_KEY:
+                frame_type = "Points"
+            elif suffix == CELL_TYPES_KEY:
+                frame_type = "Cell Types"
+            elif suffix.endswith(OFFSET_SUFFIX):
+                array_name = suffix[: -len(OFFSET_SUFFIX)]
+                frame_type = f"Offsets: {array_name}"
+            elif suffix.endswith(CONNECTIVITY_SUFFIX):
+                array_name = suffix[: -len(CONNECTIVITY_SUFFIX)]
+                frame_type = f"Connectivity: {array_name}"
+            elif suffix.endswith((RGRID_X_SUFFIX, RGRID_Y_SUFFIX, RGRID_Z_SUFFIX)):
+                coord = suffix[-8]  # x, y, or z
+                frame_type = f"RGrid {coord.upper()} Coords"
+            else:
+                frame_type = suffix
+
+            ratio = comp_size / decomp_size if decomp_size > 0 else 0
+            frame_data.append((ds_id, frame_type, comp_size, decomp_size, ratio))
+
+        # Print header
+        lines.append(f"{'Dataset ID':<16} {'Frame Type':<31} {'Compressed':<12} {'Decompressed':<12} {'Ratio':<5}")
+        lines.append("-" * 80)
+
+        # Group by dataset ID for MultiBlock organization
+        # Single dataset - print all frames
+        total_comp = 0
+        total_decomp = 0
+        for ds_id, frame_type, comp_size, decomp_size, ratio in frame_data:
+            total_comp += comp_size
+            total_decomp += decomp_size
+            lines.append(
+                f"{ds_id:<16} {frame_type[:30]:<31} {_format_bytes(comp_size):<12} "
+                f"{_format_bytes(decomp_size):<12} {ratio:.3f}"
+            )
+
+        lines.append("-" * 80)
+        overall_ratio = total_comp / total_decomp if total_decomp > 0 else 0
+        lines.append(
+            f"{'TOTAL':<16} {'':<31} {_format_bytes(total_comp):<12} "
+            f"{_format_bytes(total_decomp):<12} {overall_ratio:.3f}"
+        )
+
+        return "\n".join(lines)
