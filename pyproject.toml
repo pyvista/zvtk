@@ -25,7 +25,7 @@ license-files = ["LICENSE"]
 name = "zvtk"
 python_requires = ">=3.10"
 readme = "README.rst"
-version = '0.1.dev0'
+version = '0.2.dev0'
 
 [project.urls]
 Home = "https://github.com/pyvista/zvtk"
