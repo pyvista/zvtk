@@ -68,14 +68,14 @@ repos:
   - repo: local
     hooks:
       - id: forbid-pvz
-        name: Forbid 'pvz' alias (reserved for another project; use 'zstd')
+        name: Forbid 'pvz' alias (reserved for another project; use 'pvzstd')
         entry: |
           bash -c '
             matches=$(grep -HnE "\bpvz\b" "$@" 2>/dev/null || true)
             if [ -n "$matches" ]; then
               echo "$matches"
               echo
-              echo "'\''pvz'\'' is reserved — use \`import pyvista_zstd as zstd\` instead. (ask @banesullivan)"
+              echo "'\''pvz'\'' is reserved — use \`import pyvista_zstd as pvzstd\` instead. (ask @banesullivan)"
               exit 1
             fi
           ' --
