@@ -34,7 +34,7 @@ Compress a PyVista example dataset using three approaches.
     from pyvista import examples
     import pyvista as pv
 
-    import zvtk
+    import pyvista_zstd
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 18-19
@@ -93,40 +93,40 @@ Write the dataset out using VTK's XML format
 
 .. GENERATED FROM PYTHON SOURCE LINES 51-52
 
-Write the dataset out using zvtk
+Write the dataset out using pyvista-zstd
 
 .. GENERATED FROM PYTHON SOURCE LINES 52-62
 
 .. code-block:: Python
 
 
-    print("zvtk")
-    zvtk_filename = Path("nefertiti.zvtk")
-    ttot = timeit.timeit(lambda: zvtk.write(ds, zvtk_filename), number=10)
+    print("pyvista-zstd")
+    pyvista_zstd_filename = Path("nefertiti.pv")
+    ttot = timeit.timeit(lambda: pyvista_zstd.write(ds, pyvista_zstd_filename), number=10)
     print(f"  Time to save:   {ttot / 10:.3f} s")
-    ttot = timeit.timeit(lambda: zvtk.read(zvtk_filename), number=10)
+    ttot = timeit.timeit(lambda: pyvista_zstd.read(pyvista_zstd_filename), number=10)
     print(f"  Time to read:   {ttot / 10:.3f} s")
-    print(f"  File size:      {zvtk_filename.stat().st_size / 1024**2:.2f} MB\n")
+    print(f"  File size:      {pyvista_zstd_filename.stat().st_size / 1024**2:.2f} MB\n")
 
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 63-64
 
-Show the dataset is preserved with zvtk
+Show the dataset is preserved with pyvista-zstd
 
 .. GENERATED FROM PYTHON SOURCE LINES 64-69
 
 .. code-block:: Python
 
 
-    ds_in = zvtk.read(zvtk_filename)
+    ds_in = pyvista_zstd.read(pyvista_zstd_filename)
     print("Dataset identical:", ds == ds_in)
 
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 70-71
 
-Show the dataset is preserved with zvtk
+Show the dataset is preserved with pyvista-zstd
 
 .. GENERATED FROM PYTHON SOURCE LINES 71-72
 

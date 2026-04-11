@@ -2,7 +2,7 @@
 
 Examples
 ========
-The following examples demonstrate ``zvtk``'s functionality using
+The following examples demonstrate ``pyvista-zstd``'s functionality using
 `pyvista <https://docs.pyvista.org/>`__.
 
 
@@ -15,18 +15,18 @@ The following examples demonstrate ``zvtk``'s functionality using
 
 .. raw:: html
 
-    <div class="sphx-glr-thumbcontainer" tooltip="Save and Load DataSet using zvtk">
+    <div class="sphx-glr-thumbcontainer" tooltip="Save and Load DataSet using pyvista-zstd">
 
 .. only:: html
 
   .. image:: /auto_examples/images/thumb/sphx_glr_00-save-and-load_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_00-save-and-load.py`
+  :doc:`/auto_examples/00-save-and-load`
 
 .. raw:: html
 
-      <div class="sphx-glr-thumbnail-title">Save and Load DataSet using zvtk</div>
+      <div class="sphx-glr-thumbnail-title">Save and Load DataSet using pyvista-zstd</div>
     </div>
 
 
@@ -39,7 +39,7 @@ The following examples demonstrate ``zvtk``'s functionality using
   .. image:: /auto_examples/images/thumb/sphx_glr_02-selective-multiblock_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_02-selective-multiblock.py`
+  :doc:`/auto_examples/02-selective-multiblock`
 
 .. raw:: html
 
@@ -56,7 +56,7 @@ The following examples demonstrate ``zvtk``'s functionality using
   .. image:: /auto_examples/images/thumb/sphx_glr_01-compare_thumb.png
     :alt:
 
-  :ref:`sphx_glr_auto_examples_01-compare.py`
+  :doc:`/auto_examples/01-compare`
 
 .. raw:: html
 

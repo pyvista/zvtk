@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>zvtk &#8212; zvtk 0.1.1 documentation</title>
+    <title>pyvista-zstd &#8212; pyvista-zstd 0.2.0 documentation</title>
   
   
   
@@ -16,43 +16,47 @@
     document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
     document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
   </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
   
   <!-- Loaded before other Sphinx assets -->
-  <link href="_static/styles/theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/bootstrap.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-<link href="_static/styles/pydata-sphinx-theme.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-
-  
-  <link href="_static/vendor/fontawesome/6.5.2/css/all.min.css?digest=dfe6caa3a7d634c4db9b" rel="stylesheet" />
-  <link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-solid-900.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-brands-400.woff2" />
-<link rel="preload" as="font" type="font/woff2" crossorigin href="_static/vendor/fontawesome/6.5.2/webfonts/fa-regular-400.woff2" />
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
-    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=eba8b062" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/sphinx-book-theme.css?v=3c74b3bc" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery.css?v=d2d258e8" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-binder.css?v=f4aeca0c" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-dataframe.css?v=2082cf3c" />
     <link rel="stylesheet" type="text/css" href="_static/sg_gallery-rendered-html.css?v=1277b6f3" />
   
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
   <!-- Pre-loaded scripts that we'll load fully later -->
-  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b" />
-<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b" />
-  <script src="_static/vendor/fontawesome/6.5.2/js/all.min.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="_static/documentation_options.js?v=1a9ffd16"></script>
-    <script src="_static/doctools.js?v=9bcbadda"></script>
-    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/documentation_options.js?v=7f7c277e"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=49e1bf35"></script>
-    <script src="_static/scripts/sphinx-book-theme.js?v=887ef09a"></script>
+    <script src="_static/scripts/sphinx-book-theme.js?v=fab101a9"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Examples" href="auto_examples/index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="0.2.0" />
   </head>
   
   
@@ -68,19 +72,8 @@
     <i class="fa-solid fa-arrow-up"></i>Back to top</button>
 
   
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-primary-sidebar-checkbox"/>
-  <label class="overlay overlay-primary" for="pst-primary-sidebar-checkbox"></label>
-  
-  <input type="checkbox"
-          class="sidebar-toggle"
-          id="pst-secondary-sidebar-checkbox"/>
-  <label class="overlay overlay-secondary" for="pst-secondary-sidebar-checkbox"></label>
-  
-  <div class="search-button__wrapper">
-    <div class="search-button__overlay"></div>
-    <div class="search-button__search-container">
+  <dialog id="pst-search-dialog">
+    
 <form class="bd-search d-flex align-items-center"
       action="search.html"
       method="get">
@@ -88,7 +81,6 @@
   <input type="search"
          class="form-control"
          name="q"
-         id="search-input"
          placeholder="Search..."
          aria-label="Search..."
          autocomplete="off"
@@ -96,8 +88,8 @@
          autocapitalize="off"
          spellcheck="false"/>
   <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
-</form></div>
-  </div>
+</form>
+  </dialog>
 
   <div class="pst-async-banner-revealer d-none">
   <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
@@ -115,7 +107,8 @@
       
         
       
-      <div class="bd-sidebar-primary bd-sidebar">
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -144,8 +137,8 @@
       
     
     
-    <img src="_static/pyvista_logo_sm.png" class="logo__image only-light" alt="zvtk 0.1.1 documentation - Home"/>
-    <script>document.write(`<img src="_static/pyvista_logo_sm.png" class="logo__image only-dark" alt="zvtk 0.1.1 documentation - Home"/>`);</script>
+    <img src="_static/pyvista_logo_sm.png" class="logo__image only-light" alt="pyvista-zstd 0.2.0 documentation - Home"/>
+    <img src="_static/pyvista_logo_sm.png" class="logo__image only-dark pst-js-only" alt="pyvista-zstd 0.2.0 documentation - Home"/>
   
   
 </a></div>
@@ -160,29 +153,25 @@
           
           
           
-          <a href="https://github.com/pyvista/zvtk" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
+          <a href="https://github.com/pyvista/pyvista-zstd" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fa-brands fa-square-github fa-lg" aria-hidden="true"></i>
             <span class="sr-only">GitHub</span></a>
         </li>
 </ul></div>
         <div class="sidebar-primary-item">
 
- <script>
- document.write(`
-   <button class="btn search-button-field search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="fa-solid fa-magnifying-glass"></i>
-    <span class="search-button__default-text">Search</span>
-    <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
-   </button>
- `);
- </script></div>
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button></div>
         <div class="sidebar-primary-item"><nav class="bd-links bd-docs-nav" aria-label="Main">
     <div class="bd-toc-item navbar-nav active">
         <ul class="current nav bd-sidenav">
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">zvtk</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">pyvista-zstd</a></li>
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="auto_examples/index.html">Examples</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="auto_examples/00-save-and-load.html">Save and Load DataSet using zvtk</a></li>
+<li class="toctree-l2"><a class="reference internal" href="auto_examples/00-save-and-load.html">Save and Load DataSet using pyvista-zstd</a></li>
 
 <li class="toctree-l2"><a class="reference internal" href="auto_examples/02-selective-multiblock.html">Selectively Load a MultiBlock</a></li>
 <li class="toctree-l2"><a class="reference internal" href="auto_examples/01-compare.html">Compare Saving a Surface DataSet</a></li>
@@ -191,28 +180,28 @@
 </ul>
 <ul class="nav bd-sidenav">
 <li class="toctree-l1 has-children"><a class="reference internal" href="api.html">API Reference</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/zvtk.read.html">zvtk.read</a></li>
-<li class="toctree-l2"><a class="reference internal" href="_autosummary/zvtk.write.html">zvtk.write</a></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="_autosummary/zvtk.Reader.html">zvtk.Reader</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.read.html">zvtk.Reader.read</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.show_frame_compression.html">zvtk.Reader.show_frame_compression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.__init__.html">zvtk.Reader.__init__</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.read.html">zvtk.Reader.read</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.show_frame_compression.html">zvtk.Reader.show_frame_compression</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.available_cell_arrays.html">zvtk.Reader.available_cell_arrays</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.available_field_arrays.html">zvtk.Reader.available_field_arrays</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.available_point_arrays.html">zvtk.Reader.available_point_arrays</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.decompressed_sizes.html">zvtk.Reader.decompressed_sizes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.nbytes.html">zvtk.Reader.nbytes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.selected_cell_arrays.html">zvtk.Reader.selected_cell_arrays</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.selected_field_arrays.html">zvtk.Reader.selected_field_arrays</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Reader.selected_point_arrays.html">zvtk.Reader.selected_point_arrays</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pyvista_zstd.read.html">pyvista_zstd.read</a></li>
+<li class="toctree-l2"><a class="reference internal" href="_autosummary/pyvista_zstd.write.html">pyvista_zstd.write</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.html">pyvista_zstd.Reader</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.read.html">pyvista_zstd.Reader.read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.show_frame_compression.html">pyvista_zstd.Reader.show_frame_compression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.__init__.html">pyvista_zstd.Reader.__init__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.read.html">pyvista_zstd.Reader.read</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.show_frame_compression.html">pyvista_zstd.Reader.show_frame_compression</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.available_cell_arrays.html">pyvista_zstd.Reader.available_cell_arrays</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.available_field_arrays.html">pyvista_zstd.Reader.available_field_arrays</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.available_point_arrays.html">pyvista_zstd.Reader.available_point_arrays</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.decompressed_sizes.html">pyvista_zstd.Reader.decompressed_sizes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.nbytes.html">pyvista_zstd.Reader.nbytes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.selected_cell_arrays.html">pyvista_zstd.Reader.selected_cell_arrays</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.selected_field_arrays.html">pyvista_zstd.Reader.selected_field_arrays</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Reader.selected_point_arrays.html">pyvista_zstd.Reader.selected_point_arrays</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="_autosummary/zvtk.Writer.html">zvtk.Writer</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Writer.write.html">zvtk.Writer.write</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Writer.__init__.html">zvtk.Writer.__init__</a></li>
-<li class="toctree-l3"><a class="reference internal" href="_autosummary/zvtk.Writer.write.html">zvtk.Writer.write</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="_autosummary/pyvista_zstd.Writer.html">pyvista_zstd.Writer</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Writer.write.html">pyvista_zstd.Writer.write</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Writer.__init__.html">pyvista_zstd.Writer.__init__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="_autosummary/pyvista_zstd.Writer.write.html">pyvista_zstd.Writer.write</a></li>
 </ul>
 </details></li>
 </ul>
@@ -222,7 +211,6 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="benchmarks/index.html">Benchmarks</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="benchmarks/pv_examples.html">PyVista Examples Benchmarks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="benchmarks/synthetic_dataset.html">Synthetic Dataset Benchmarks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="benchmarks/zvtk_benchmark.html">ZVTK Compression and Threading Benchmarks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="benchmarks/compression_alg_comparison.html">Compression Algorithm Comparison</a></li>
 </ul>
 </details></li>
@@ -234,9 +222,14 @@
   
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
   </div>
-  
-  <div id="rtd-footer-container"></div>
 
 
       </div>
@@ -319,7 +312,7 @@
 
 
 <button onclick="toggleFullScreen()"
-  class="btn btn-sm btn-fullscreen-button"
+  class="btn btn-sm btn-fullscreen-button pst-navbar-icon"
   title="Fullscreen mode"
   data-bs-placement="bottom" data-bs-toggle="tooltip"
 >
@@ -333,25 +326,17 @@
 
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button" title="light/dark" aria-label="light/dark" data-bs-placement="bottom" data-bs-toggle="tooltip">
-    <i class="theme-switch fa-solid fa-sun fa-lg" data-mode="light"></i>
-    <i class="theme-switch fa-solid fa-moon fa-lg" data-mode="dark"></i>
-    <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"></i>
-  </button>
-`);
-</script>
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
 
 
-<script>
-document.write(`
-  <button class="btn btn-sm pst-navbar-icon search-button search-button__button" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+<button class="btn btn-sm pst-navbar-icon search-button search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <i class="fa-solid fa-magnifying-glass fa-lg"></i>
-  </button>
-`);
-</script>
-<button class="sidebar-toggle secondary-toggle btn btn-sm" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
+</button>
+<button class="sidebar-toggle secondary-toggle btn btn-sm pst-navbar-icon" title="Toggle secondary sidebar" data-bs-placement="bottom" data-bs-toggle="tooltip">
     <span class="fa-solid fa-list"></span>
 </button>
 </div></div>
@@ -364,7 +349,7 @@ document.write(`
               
 
 <div id="jb-print-docs-body" class="onlyprint">
-    <h1>zvtk</h1>
+    <h1>pyvista-zstd</h1>
     <!-- Table of contents -->
     <div id="print-main-content">
         <div id="jb-print-toc">
@@ -375,8 +360,9 @@ document.write(`
             <nav aria-label="Page">
                 <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pyvista-integration">PyVista Integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rational">Rational</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vtk-compression-with-zstandard-zvtk">VTK Compression with Zstandard: zvtk</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vtk-compression-with-zstandard-pyvista-zstd">VTK Compression with Zstandard: pyvista-zstd</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-information">Additional Information</a><ul class="nav section-nav flex-column">
 </ul>
 </li>
@@ -391,14 +377,14 @@ document.write(`
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="zvtk">
-<h1>zvtk<a class="headerlink" href="#zvtk" title="Link to this heading">#</a></h1>
-<p><a class="reference external" href="https://pypi.org/project/zvtk/"><img alt="pypi" src="https://img.shields.io/pypi/v/zvtk.svg?logo=python&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/pyvista/zvtk/actions/workflows/ci_cd.yml"><img alt="ci" src="https://github.com/pyvista/zvtk/actions/workflows/ci_cd.yml/badge.svg" /></a> <a class="reference external" href="https://opensource.org/license/mit/"><img alt="mit" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a></p>
+  <section id="pyvista-zstd">
+<h1>pyvista-zstd<a class="headerlink" href="#pyvista-zstd" title="Link to this heading">#</a></h1>
+<p><a class="reference external" href="https://pypi.org/project/pyvista-zstd/"><img alt="pypi" src="https://img.shields.io/pypi/v/pyvista-zstd.svg?logo=python&amp;logoColor=white" /></a> <a class="reference external" href="https://github.com/pyvista/pyvista-zstd/actions/workflows/ci_cd.yml"><img alt="ci" src="https://github.com/pyvista/pyvista-zstd/actions/workflows/ci_cd.yml/badge.svg" /></a> <a class="reference external" href="https://opensource.org/license/mit/"><img alt="mit" src="https://img.shields.io/badge/License-MIT-yellow.svg" /></a></p>
 <p>Seamlessly compress VTK datasets using <a class="reference external" href="https://github.com/facebook/zstd">Zstandard</a>.</p>
 <p><strong>Read in VTK datasets 37x faster, write 14x faster, all while using 28% less
 space versus VTK’s modern XML format.</strong></p>
 <figure class="align-default" id="id1">
-<img alt="Read/Write Speedup and Compression Ratios" src="https://github.com/pyvista/zvtk/raw/main/doc/images/speed-up.png" />
+<img alt="Read/Write Speedup and Compression Ratios" src="https://github.com/pyvista/pyvista-zstd/raw/main/doc/images/speed-up.png" />
 <figcaption>
 <p><span class="caption-text">Read/Write Speedup and Compression Ratios</span><a class="headerlink" href="#id1" title="Link to this image">#</a></p>
 </figcaption>
@@ -447,17 +433,17 @@ space versus VTK’s modern XML format.</strong></p>
 <td><p>2.37</p></td>
 <td><p>Default compression</p></td>
 </tr>
-<tr class="row-odd"><td><p>zvtk (.zvtk), lvl3</p></td>
+<tr class="row-odd"><td><p>pyvista-zstd (.pv), lvl3</p></td>
 <td><p>711 MB/s</p></td>
 <td><p>3.02</p></td>
 <td><p>Threads = 0</p></td>
 </tr>
-<tr class="row-even"><td><p><strong>zvtk (.zvtk), lvl3</strong></p></td>
+<tr class="row-even"><td><p><strong>pyvista-zstd (.pv), lvl3</strong></p></td>
 <td><p><strong>1845 MB/s</strong></p></td>
 <td><p><strong>3.02</strong></p></td>
 <td><p><strong>Threads = 4</strong></p></td>
 </tr>
-<tr class="row-odd"><td><p>zvtk (.zvtk), lvl22</p></td>
+<tr class="row-odd"><td><p>pyvista-zstd (.pv), lvl22</p></td>
 <td><p>15.8 MB/s</p></td>
 <td><p>3.79</p></td>
 <td><p>All threads (-1)</p></td>
@@ -468,25 +454,25 @@ space versus VTK’s modern XML format.</strong></p>
 <section id="usage">
 <h2>Usage<a class="headerlink" href="#usage" title="Link to this heading">#</a></h2>
 <p>Install with:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>zvtk
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>pyvista-zstd
 </pre></div>
 </div>
 <p>Compatible with all VTK dataset types. Uses
 <a class="reference external" href="https://docs.pyvista.org/">PyVista</a> under the hood.</p>
-<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">zvtk</span>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pyvista_zstd</span>
 
 <span class="c1"># create and write out</span>
 <span class="n">ds</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">Sphere</span><span class="p">()</span>
-<span class="n">zvtk</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;dataset.zvtk&quot;</span><span class="p">)</span>
+<span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ds</span><span class="p">,</span> <span class="s2">&quot;dataset.pv&quot;</span><span class="p">)</span>
 
 <span class="c1"># read in and show these are identical</span>
-<span class="n">ds_in</span> <span class="o">=</span> <span class="n">zvtk</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;dataset.zvtk&quot;</span><span class="p">)</span>
+<span class="n">ds_in</span> <span class="o">=</span> <span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;dataset.pv&quot;</span><span class="p">)</span>
 <span class="k">assert</span> <span class="n">ds</span> <span class="o">==</span> <span class="n">ds_in</span>
 </pre></div>
 </div>
 <p><strong>Alternative VTK example</strong></p>
 <div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">vtk</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">zvtk</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pyvista_zstd</span>
 
 <span class="c1"># create dataset using VTK source</span>
 <span class="n">sphere_source</span> <span class="o">=</span> <span class="n">vtk</span><span class="o">.</span><span class="n">vtkSphereSource</span><span class="p">()</span>
@@ -498,10 +484,23 @@ space versus VTK’s modern XML format.</strong></p>
 <span class="n">vtk_ds</span> <span class="o">=</span> <span class="n">sphere_source</span><span class="o">.</span><span class="n">GetOutput</span><span class="p">()</span>
 
 <span class="c1"># read back</span>
-<span class="n">zvtk</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">vtk_ds</span><span class="p">,</span> <span class="s2">&quot;sphere.zvtk&quot;</span><span class="p">)</span>
-<span class="n">ds_in</span> <span class="o">=</span> <span class="n">zvtk</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;sphere.zvtk&quot;</span><span class="p">)</span>
+<span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">vtk_ds</span><span class="p">,</span> <span class="s2">&quot;sphere.pv&quot;</span><span class="p">)</span>
+<span class="n">ds_in</span> <span class="o">=</span> <span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;sphere.pv&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
+</section>
+<section id="pyvista-integration">
+<h2>PyVista Integration<a class="headerlink" href="#pyvista-integration" title="Link to this heading">#</a></h2>
+<p>When <code class="docutils literal notranslate"><span class="pre">pyvista-zstd</span></code> is installed, it automatically registers with PyVista’s
+reader registry. This means <code class="docutils literal notranslate"><span class="pre">pv.read()</span></code> handles <code class="docutils literal notranslate"><span class="pre">.pv</span></code> files
+directly:</p>
+<div class="highlight-py notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
+
+<span class="n">mesh</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;dataset.pv&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>No additional imports needed. This works via PyVista’s <code class="docutils literal notranslate"><span class="pre">pyvista.readers</span></code>
+entry point group, so the registration happens at install time.</p>
 </section>
 <section id="rational">
 <h2>Rational<a class="headerlink" href="#rational" title="Link to this heading">#</a></h2>
@@ -567,23 +566,23 @@ takes 19 seconds to compress.</p>
 <p>Clearly there’s room for improvement here as this amounts to a
 compression rate of 105.89 MB/s.</p>
 </section>
-<section id="vtk-compression-with-zstandard-zvtk">
-<h2>VTK Compression with Zstandard: zvtk<a class="headerlink" href="#vtk-compression-with-zstandard-zvtk" title="Link to this heading">#</a></h2>
-<p>This library, <code class="docutils literal notranslate"><span class="pre">zvtk</span></code>, writes out VTK datasets with minimal overhead
+<section id="vtk-compression-with-zstandard-pyvista-zstd">
+<h2>VTK Compression with Zstandard: pyvista-zstd<a class="headerlink" href="#vtk-compression-with-zstandard-pyvista-zstd" title="Link to this heading">#</a></h2>
+<p>This library, <code class="docutils literal notranslate"><span class="pre">pyvista-zstd</span></code>, writes out VTK datasets with minimal overhead
 and uses <a class="reference external" href="https://github.com/facebook/zstd">Zstandard</a> for
 compression. Moreover, it’s been implemented with multi-threading
 support for both read and write operations.</p>
-<p>Let’s compress that file again but this time using <code class="docutils literal notranslate"><span class="pre">zvtk</span></code>:</p>
-<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">zvtk</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tmp_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.zvtk&quot;</span><span class="p">)</span>
+<p>Let’s compress that file again but this time using <code class="docutils literal notranslate"><span class="pre">pyvista-zstd</span></code>:</p>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn">pyvista_zstd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tmp_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.pv&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tstart</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zvtk</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ugrid</span><span class="p">,</span> <span class="n">tmp_path</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed zvtk in </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">tstart</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ugrid</span><span class="p">,</span> <span class="n">tmp_path</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed pyvista_zstd in </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">tstart</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">nbytes_disk</span> <span class="o">=</span> <span class="n">tmp_path</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  File size:            </span><span class="si">{</span><span class="n">nbytes_disk</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Compression Ratio:    </span><span class="si">{</span><span class="n">nbytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">nbytes_disk</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-<span class="go">Compressed zvtk in 0.92 seconds</span>
+<span class="go">Compressed pyvista_zstd in 0.92 seconds</span>
 <span class="go">Threads:              -1</span>
 <span class="go">File size:            660.41 MB</span>
 <span class="go">Compression Ratio:    3.019175309922273</span>
@@ -594,7 +593,7 @@ of threads and compression level, resulting in a 20x speedup in write
 performance versus VTK’s XML writer. This speedup is most noticeable for
 larger files:</p>
 <figure class="align-default" id="id2">
-<img alt="Speedup versus VTK’s XML" src="https://github.com/pyvista/zvtk/raw/main/doc/images/synthetic-fig3.png" />
+<img alt="Speedup versus VTK’s XML" src="https://github.com/pyvista/pyvista-zstd/raw/main/doc/images/synthetic-fig3.png" />
 <figcaption>
 <p><span class="caption-text">Speedup versus VTK’s XML</span><a class="headerlink" href="#id2" title="Link to this image">#</a></p>
 </figcaption>
@@ -602,13 +601,13 @@ larger files:</p>
 <p>Even when disabling multi-threading we can still achieve excellent
 performance:</p>
 <div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">tstart</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zvtk</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ugrid</span><span class="p">,</span> <span class="n">tmp_path</span><span class="p">,</span> <span class="n">n_threads</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed zvtk in </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">tstart</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">ugrid</span><span class="p">,</span> <span class="n">tmp_path</span><span class="p">,</span> <span class="n">n_threads</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Compressed pyvista_zstd in </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">tstart</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> seconds&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">nbytes_disk</span> <span class="o">=</span> <span class="n">tmp_path</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  File size:            </span><span class="si">{</span><span class="n">nbytes_disk</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB&quot;</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Compression Ratio:    </span><span class="si">{</span><span class="n">nbytes</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">nbytes_disk</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-<span class="go">Compressed zvtk in 2.91 seconds</span>
+<span class="go">Compressed pyvista_zstd in 2.91 seconds</span>
 <span class="go">Threads:              0</span>
 <span class="go">File size:            660.47 MB</span>
 <span class="go">Compression Ratio:    3.0188911592355683</span>
@@ -621,7 +620,7 @@ in agreement with Zstandard’s
 though part of this is due to the performance versus efficiency cores of
 the CPU used for benchmarking (see below).</p>
 <figure class="align-default" id="id3">
-<img alt="Read/Write Speed versus Number of Threads" src="https://github.com/pyvista/zvtk/raw/main/doc/images/zvtk-single-ds-fig3.png" />
+<img alt="Read/Write Speed versus Number of Threads" src="https://github.com/pyvista/pyvista-zstd/raw/main/doc/images/pyvista-zstd-single-ds-fig3.png" />
 <figcaption>
 <p><span class="caption-text">Read/Write Speed versus Number of Threads</span><a class="headerlink" href="#id3" title="Link to this image">#</a></p>
 </figcaption>
@@ -638,13 +637,13 @@ using defaults:</p>
 <span class="go">Read zstd</span>
 
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Read zstd:&quot;</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">timeit</span> <span class="n">zvtk</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.zvtk&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">timeit</span> <span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.pv&quot;</span><span class="p">)</span>
 <span class="go">563 ms ± 7.96 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)</span>
 </pre></div>
 </div>
 <p>This is an 11x speedup for this dataset versus VTK’s XML, and it’s still
 fast even with multi-threading disabled:</p>
-<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">timeit</span> <span class="n">zvtk</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.zvtk&quot;</span><span class="p">,</span> <span class="n">n_threads</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<div class="highlight-pycon notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">timeit</span> <span class="n">pyvista_zstd</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">&quot;/tmp/ds.pv&quot;</span><span class="p">,</span> <span class="n">n_threads</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 <span class="go">1.11 s ± 4.51 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)</span>
 </pre></div>
 </div>
@@ -655,16 +654,16 @@ with Zstandard’s
 <code class="docutils literal notranslate"><span class="pre">level=</span></code>. A quick benchmark for this dataset indicates the defaults
 give a reasonable performance versus size tradeoff:</p>
 <figure class="align-default" id="id4">
-<img alt="Read/Write Speed versus Compression Level" src="https://github.com/pyvista/zvtk/raw/main/doc/images/zvtk-single-ds-fig4.png" />
+<img alt="Read/Write Speed versus Compression Level" src="https://github.com/pyvista/pyvista-zstd/raw/main/doc/images/pyvista-zstd-single-ds-fig4.png" />
 <figcaption>
 <p><span class="caption-text">Read/Write Speed versus Compression Level</span><a class="headerlink" href="#id4" title="Link to this image">#</a></p>
 </figcaption>
 </figure>
-<p>Note that both <code class="docutils literal notranslate"><span class="pre">zvtk</span></code> and VTK’s XML default compression give
+<p>Note that both <code class="docutils literal notranslate"><span class="pre">pyvista-zstd</span></code> and VTK’s XML default compression give
 relatively constant compression ratios for this dataset across varying
 file sizes:</p>
 <figure class="align-default" id="id5">
-<img alt="Compression Ratio versus VTK’s XML" src="https://github.com/pyvista/zvtk/raw/main/doc/images/synthetic-fig4.png" />
+<img alt="Compression Ratio versus VTK’s XML" src="https://github.com/pyvista/pyvista-zstd/raw/main/doc/images/synthetic-fig4.png" />
 <figcaption>
 <p><span class="caption-text">Compression Ratio versus VTK’s XML</span><a class="headerlink" href="#id5" title="Link to this image">#</a></p>
 </figcaption>
@@ -702,18 +701,21 @@ Gallery</a>).</p>
             
             
               
-                <div class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
 
-  <div class="sidebar-secondary-item">
-  <div class="page-toc tocsection onthispage">
+  <div class="sidebar-secondary-item"><div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
     <i class="fa-solid fa-list"></i> Contents
   </div>
-  <nav class="bd-toc-nav page-toc">
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#usage">Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#pyvista-integration">PyVista Integration</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#rational">Rational</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vtk-compression-with-zstandard-zvtk">VTK Compression with Zstandard: zvtk</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#vtk-compression-with-zstandard-pyvista-zstd">VTK Compression with Zstandard: pyvista-zstd</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#additional-information">Additional Information</a><ul class="nav section-nav flex-column">
 </ul>
 </li>
@@ -741,7 +743,7 @@ By Alex Kaszynski
 
   <p class="copyright">
     
-      © Copyright 2025-2025, The PyVista Developers.
+      © Copyright 2025-2026, The PyVista Developers.
       <br/>
     
   </p>
@@ -765,8 +767,8 @@ By Alex Kaszynski
   </div>
   
   <!-- Scripts loaded after <body> so the DOM is not blocked -->
-  <script src="_static/scripts/bootstrap.js?digest=dfe6caa3a7d634c4db9b"></script>
-<script src="_static/scripts/pydata-sphinx-theme.js?digest=dfe6caa3a7d634c4db9b"></script>
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
 
   <footer class="bd-footer">
   </footer>

@@ -33,15 +33,15 @@ Selectively or progressively load a :class:`pyvista.MultiBlock`.
     from pyvista import examples
     import pyvista as pv
 
-    import zvtk
+    import pyvista_zstd
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 17-21
 
-First, download a multiblock dataset from pyvista and save it as a zvtk file.
+First, download a multiblock dataset from pyvista and save it as a pyvista-zstd file.
 
 .. note::
-   Unlike VTK, ``zvtk`` saves composite datasets as a single file.
+   Unlike VTK, ``pyvista-zstd`` saves composite datasets as a single file.
 
 .. GENERATED FROM PYTHON SOURCE LINES 21-28
 
@@ -50,21 +50,21 @@ First, download a multiblock dataset from pyvista and save it as a zvtk file.
 
     ds = examples.download_whole_body_ct_male()
 
-    zvtk_filename = "whole_body_ct_male.zvtk"
-    zvtk.write(ds, zvtk_filename)
+    pyvista_zstd_filename = "whole_body_ct_male.pv"
+    pyvista_zstd.write(ds, pyvista_zstd_filename)
 
 
 
 .. GENERATED FROM PYTHON SOURCE LINES 29-30
 
-Next, create a :class:`zvtk.Reader` and show the global hierarchy
+Next, create a :class:`pyvista-zstd.Reader` and show the global hierarchy
 
 .. GENERATED FROM PYTHON SOURCE LINES 30-35
 
 .. code-block:: Python
 
 
-    reader = zvtk.Reader(zvtk_filename)
+    reader = pyvista_zstd.Reader(pyvista_zstd_filename)
     reader
 
 
