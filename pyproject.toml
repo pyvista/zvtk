@@ -29,6 +29,11 @@ version = '0.3.dev0'
 
 [project.entry-points."pyvista.readers"]
 ".pv" = "pyvista_zstd:read"
+".zvtk" = "pyvista_zstd:read"
+
+[project.entry-points."pyvista.writers"]
+".pv" = "pyvista_zstd:write"
+".zvtk" = "pyvista_zstd:write"
 
 [project.urls]
 Home = "https://github.com/pyvista/pyvista-zstd"
