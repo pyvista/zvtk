@@ -104,8 +104,8 @@ class ArrayInfo:
 
 
 @dataclass(slots=True, frozen=True)
-class ZvtkFileMetadata:
-    """Zvtk file metadata."""
+class ZstdFileMetadata:
+    """pyvista-zstd file metadata."""
 
     frame_names: list[str]
     compression_level: int
@@ -117,7 +117,7 @@ class ZvtkFileMetadata:
         return json.dumps(asdict(self), separators=(",", ":"))
 
     @classmethod
-    def from_json(cls, s: str) -> ZvtkFileMetadata:
+    def from_json(cls, s: str) -> ZstdFileMetadata:
         """Create from JSON."""
         return cls(**json.loads(s))
 
@@ -473,7 +473,7 @@ class Writer:
         """Initialize the writer."""
         self._filename = Path(filename)
 
-        if self._filename.suffix != FILE_SUFFIX:
+        if self._filename.suffix not in SUPPORTED_READ_SUFFIXES:
             msg = f"Filename must end in '{FILE_SUFFIX}', not '{self._filename.suffix}'"
             raise ValueError(msg)
 
@@ -561,6 +561,18 @@ class Writer:
         n_threads: int | None = None,
     ) -> None:
         """Write the dataset."""
+        if self._filename.suffix == LEGACY_FILE_SUFFIX:
+            # FutureWarning (not DeprecationWarning) because this is aimed at
+            # end users writing data files, and Python's default warning
+            # filters hide DeprecationWarning from non-__main__ code.
+            warnings.warn(
+                f"Writing '{self._filename}' as a legacy zvtk file. Support "
+                f"for the '{LEGACY_FILE_SUFFIX}' format will be removed in a "
+                f"future release; prefer the '{FILE_SUFFIX}' extension.",
+                FutureWarning,
+                stacklevel=2,
+            )
+
         self._add_ds_arrays(self._ds, force_int32=force_int32)
 
         # optimal number of threads is based on how much we're writing to disk
@@ -568,7 +580,7 @@ class Writer:
         n_threads = _set_n_threads(n_threads, n_bytes)
 
         # finally, append file metadata as the final frame
-        file_meta = ZvtkFileMetadata(
+        file_meta = ZstdFileMetadata(
             frame_names=list(self._arrays.keys()),  # frame order matters
             compression_level=level,
         )
@@ -783,22 +795,12 @@ def _apply_metadata(ds: DataSet, metadata: DataSetMetadata) -> None:
 try:
     from pyvista import LocalFileRequiredError
     from pyvista import has_scheme
-    from pyvista import register_reader
 except ImportError:
+    # Requires pyvista >= 0.48
     LocalFileRequiredError = None  # type: ignore[assignment, misc]
     has_scheme = None  # type: ignore[assignment]
 
-    def register_reader(_key: str) -> Callable:  # type: ignore[no-redef]
-        """No-op fallback for pyvista < 0.48."""
 
-        def _identity(fn: Callable) -> Callable:
-            return fn
-
-        return _identity
-
-
-@register_reader(LEGACY_FILE_SUFFIX)
-@register_reader(FILE_SUFFIX)
 def read(filename: Path | str, n_threads: int | None = None) -> DataSet:
     """
     Decompress a ``pyvista-zstd`` file.
@@ -1080,7 +1082,7 @@ class Reader:
         """Return the size of the decompressed dataset."""
         return int(self.decompressed_sizes.sum())
 
-    def _load_file_metadata(self) -> ZvtkFileMetadata:
+    def _load_file_metadata(self) -> ZstdFileMetadata:
         """Load the metadata from the pyvista-zstd file without full decompression."""
         dctx = zstd.ZstdDecompressor()
 
@@ -1106,7 +1108,7 @@ class Reader:
             msg = "File metadata not found in pyvista-zstd file."
             raise RuntimeError(msg)
 
-        metadata = ZvtkFileMetadata.from_json(arr.tobytes().decode("utf-8"))
+        metadata = ZstdFileMetadata.from_json(arr.tobytes().decode("utf-8"))
 
         if metadata.file_version > FILE_VERSION:
             warnings.warn(
