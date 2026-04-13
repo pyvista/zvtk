@@ -383,6 +383,37 @@ def test_legacy_zvtk_warning_visible_under_default_filters() -> None:
     )
 
 
+def test_write_zvtk_emits_future_warning(tmp_path: Path) -> None:
+    """
+    Writing a ``.zvtk`` file emits a :class:`FutureWarning`.
+
+    The legacy extension is still accepted so users can round-trip existing
+    files, but the writer steers them toward the current ``.pv`` extension.
+    """
+    mesh = pv.Sphere()
+    path = tmp_path / "sphere.zvtk"
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        pyvista_zstd.write(mesh, path)
+
+    future_warns = [wi for wi in w if issubclass(wi.category, FutureWarning)]
+    assert any("legacy zvtk file" in str(wi.message) for wi in future_warns)
+    assert path.exists()
+
+
+def test_write_pv_does_not_warn(tmp_path: Path) -> None:
+    """Writing a ``.pv`` file does not emit a :class:`FutureWarning`."""
+    mesh = pv.Sphere()
+    path = tmp_path / "sphere.pv"
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        pyvista_zstd.write(mesh, path)
+
+    assert not [wi for wi in w if issubclass(wi.category, FutureWarning)]
+
+
 def test_read_sphere_v2_pv_fixture() -> None:
     """
     Read the committed ``.pv`` fixture from the current pyvista-zstd release.
